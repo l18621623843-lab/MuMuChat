@@ -1,0 +1,13 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- MuMuChat 夜间模式主题（当前应用以浅色为主，夜间模式保持一致） -->
+    <style name="Theme.MuMuChat" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#FF4FC3F7</item>
+        <item name="colorPrimaryVariant">#FF0288D1</item>
+        <item name="colorOnPrimary">#FFFFFFFF</item>
+        <item name="colorSecondary">#FF0288D1</item>
+        <item name="colorSecondaryVariant">#FF0277BD</item>
+        <item name="colorOnSecondary">#FFFFFFFF</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>

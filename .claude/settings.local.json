@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir /s /b \"D:\\\\andorid-workspace\\\\MuMuChat\\\\app\\\\src\\\\main\\\\java\\\\com\\\\kk\\\\mumuchat\")",
+      "mcp__ide__getDiagnostics"
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- MuMuChat 应用主题 -->
+    <!-- 使用 NoActionBar 因为我们用 Compose 自定义顶部栏 -->
+    <style name="Theme.MuMuChat" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- 天蓝色主色调 -->
+        <item name="colorPrimary">#FF4FC3F7</item>
+        <item name="colorPrimaryVariant">#FF0288D1</item>
+        <item name="colorOnPrimary">#FFFFFFFF</item>
+        <!-- 次要色 -->
+        <item name="colorSecondary">#FF0288D1</item>
+        <item name="colorSecondaryVariant">#FF0277BD</item>
+        <item name="colorOnSecondary">#FFFFFFFF</item>
+        <!-- 状态栏透明（配合 enableEdgeToEdge） -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>
