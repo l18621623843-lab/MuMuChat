@@ -106,8 +106,8 @@ fun AppNavigation() {
                     onSendMessage = { content ->
                         chatViewModel.sendMessage(chatId, content)
                     },
-                    onSendVoice = {
-                        chatViewModel.sendVoiceMessage(chatId)
+                    onSendVoice = { duration ->
+                        chatViewModel.sendVoiceMessage(chatId, duration)
                     },
                     onSendImage = {
                         chatViewModel.sendImageMessage(chatId)
