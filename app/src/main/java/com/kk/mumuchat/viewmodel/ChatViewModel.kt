@@ -16,6 +16,13 @@ import com.kk.mumuchat.model.User
  */
 class ChatViewModel : ViewModel() {
 
+    // ==================== 主题模式 ====================
+    val isDarkMode = mutableStateOf(false)
+
+    fun toggleDarkMode() {
+        isDarkMode.value = !isDarkMode.value
+    }
+
     // ==================== 当前登录用户 ====================
     val currentUser = mutableStateOf(
         User(

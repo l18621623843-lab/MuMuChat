@@ -51,156 +51,73 @@ import com.kk.mumuchat.model.User
 import com.kk.mumuchat.ui.components.GlassCard
 import com.kk.mumuchat.ui.theme.*
 
-/**
- * 个人资料页面（"我"标签页）
- * 对应截图第4张：头像、昵称、手机号、操作按钮、动态/已归档
- *
- * @param user 当前登录用户信息
- */
 @Composable
 fun ProfileScreen(user: User) {
-    // Tab 选中状态（动态 / 已归档的动态）
+    val colors = LocalMuMuColors.current
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("动态", "已归档的动态")
 
-    val bgBrush = androidx.compose.ui.graphics.Brush.verticalGradient(
-        colors = listOf(
-            androidx.compose.ui.graphics.Color(0xFFF2F6FA),
-            androidx.compose.ui.graphics.Color(0xFFE8EFF6),
-            androidx.compose.ui.graphics.Color(0xFFF0F4F8)
-        )
-    )
-
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(bgBrush)
+        modifier = Modifier.fillMaxSize().background(colors.background)
     ) {
-        // ==================== 顶部操作栏 ====================
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.End
         ) {
-            IconButton(onClick = { /* TODO: 搜索 */ }) {
-                Icon(Icons.Default.Search, contentDescription = "搜索", tint = SkyBlue)
-            }
-            IconButton(onClick = { /* TODO: 更多 */ }) {
-                Icon(Icons.Default.MoreVert, contentDescription = "更多", tint = TextPrimary)
-            }
+            IconButton(onClick = {}) { Icon(Icons.Default.Search, "搜索", tint = SkyBlue) }
+            IconButton(onClick = {}) { Icon(Icons.Default.MoreVert, "更多", tint = colors.textPrimary) }
         }
 
-        // ==================== 可滚动内容 ====================
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 头像区域
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(Modifier.height(16.dp))
                 Box(
-                    modifier = Modifier
-                        .size(90.dp)
-                        .clip(CircleShape)
-                        .background(Color.LightGray.copy(alpha = 0.4f)),
+                    modifier = Modifier.size(90.dp).clip(CircleShape).background(
+                        if (colors.isDark) Color.White.copy(alpha = 0.1f) else Color.LightGray.copy(alpha = 0.4f)
+                    ),
                     contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Person,
-                        contentDescription = "头像",
-                        tint = Color.Gray,
-                        modifier = Modifier.size(50.dp)
-                    )
-                }
+                ) { Icon(Icons.Default.Person, "头像", tint = if (colors.isDark) Color.White.copy(alpha = 0.5f) else Color.Gray, modifier = Modifier.size(50.dp)) }
             }
-
-            // 用户名
             item {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = user.name,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
+                Spacer(Modifier.height(12.dp))
+                Text(user.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
             }
-
-            // 手机号
             item {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = user.phone,
-                    fontSize = 14.sp,
-                    color = TextSecondary
-                )
+                Spacer(Modifier.height(4.dp))
+                Text(user.phone, fontSize = 14.sp, color = colors.textSecondary)
             }
-
-            // 三个操作按钮（设置照片、编辑信息、设置）
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(Modifier.height(16.dp))
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    ProfileActionButton(
-                        icon = Icons.Default.CameraAlt,
-                        label = "设置照片",
-                        onClick = { /* TODO: 设置头像 */ }
-                    )
-                    ProfileActionButton(
-                        icon = Icons.Default.Edit,
-                        label = "编辑信息",
-                        onClick = { /* TODO: 编辑个人信息 */ }
-                    )
-                    ProfileActionButton(
-                        icon = Icons.Default.Settings,
-                        label = "设置",
-                        onClick = { /* TODO: 打开设置 */ }
-                    )
+                    ProfileActionButton(Icons.Default.CameraAlt, "设置照片") {}
+                    ProfileActionButton(Icons.Default.Edit, "编辑信息") {}
+                    ProfileActionButton(Icons.Default.Settings, "设置") {}
                 }
             }
-
-            // 手机号信息卡片
             item {
-                Spacer(modifier = Modifier.height(16.dp))
-                GlassCard(
-                    modifier = Modifier.padding(horizontal = 24.dp)
-                ) {
+                Spacer(Modifier.height(16.dp))
+                GlassCard(modifier = Modifier.padding(horizontal = 24.dp)) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            Icons.Default.Call,
-                            contentDescription = null,
-                            tint = TextSecondary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Icon(Icons.Default.Call, null, tint = colors.textSecondary, modifier = Modifier.size(22.dp))
+                        Spacer(Modifier.width(12.dp))
                         Column {
-                            Text(
-                                text = "+86 / 86-2/62-3843",
-                                fontSize = 15.sp,
-                                color = TextPrimary
-                            )
-                            Text(
-                                text = "手机",
-                                fontSize = 13.sp,
-                                color = TextSecondary
-                            )
+                            Text("+86 / 86-2/62-3843", fontSize = 15.sp, color = colors.textPrimary)
+                            Text("手机", fontSize = 13.sp, color = colors.textSecondary)
                         }
                     }
                 }
             }
-
-            // 动态 Tab 栏
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(Modifier.height(16.dp))
                 TabRow(
                     selectedTabIndex = selectedTab,
                     containerColor = Color.Transparent,
@@ -219,111 +136,55 @@ fun ProfileScreen(user: User) {
                         Tab(
                             selected = selectedTab == index,
                             onClick = { selectedTab = index },
-                            text = {
-                                Text(
-                                    text = title,
-                                    color = if (selectedTab == index) SkyBlue else TextSecondary,
-                                    fontSize = 14.sp
-                                )
-                            }
+                            text = { Text(title, color = if (selectedTab == index) SkyBlue else colors.textSecondary, fontSize = 14.sp) }
                         )
                     }
                 }
             }
-
-            // 空状态提示
             item {
-                Spacer(modifier = Modifier.height(48.dp))
-                Text(
-                    text = "暂无贴文",
-                    fontSize = 18.sp,
-                    color = TextSecondary,
-                    fontWeight = FontWeight.Medium
-                )
+                Spacer(Modifier.height(48.dp))
+                Text("暂无贴文", fontSize = 18.sp, color = colors.textSecondary, fontWeight = FontWeight.Medium)
             }
-
             item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "发布照片和视频将显示在您的个人资料上",
-                    fontSize = 14.sp,
-                    color = TextSecondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 48.dp)
-                )
+                Spacer(Modifier.height(8.dp))
+                Text("发布照片和视频将显示在您的个人资料上", fontSize = 14.sp, color = colors.textSecondary, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 48.dp))
             }
-
-            // "添加贴文" 按钮
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(Modifier.height(16.dp))
                 Button(
-                    onClick = { /* TODO: 添加贴文 */ },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = SkyBlue
-                    ),
+                    onClick = {},
+                    colors = ButtonDefaults.buttonColors(containerColor = SkyBlue),
                     shape = RoundedCornerShape(24.dp),
                     modifier = Modifier.padding(horizontal = 48.dp)
                 ) {
-                    Text(
-                        text = "添加贴文",
-                        fontSize = 15.sp,
-                        color = Color.White,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
+                    Text("添加贴文", fontSize = 15.sp, color = Color.White, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                 }
             }
-
-            // 底部留白
-            item { Spacer(modifier = Modifier.height(100.dp)) }
+            item { Spacer(Modifier.height(100.dp)) }
         }
     }
 }
 
-/**
- * 个人资料页的操作按钮（设置照片、编辑信息、设置）
- * 毛玻璃卡片风格
- */
 @Composable
-fun ProfileActionButton(
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit
-) {
-    GlassCard(
-        modifier = Modifier.size(width = 100.dp, height = 80.dp),
-        cornerRadius = 12.dp
-    ) {
+fun ProfileActionButton(icon: ImageVector, label: String, onClick: () -> Unit) {
+    val colors = LocalMuMuColors.current
+    GlassCard(modifier = Modifier.size(width = 100.dp, height = 80.dp), cornerRadius = 12.dp) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(8.dp),
+            modifier = Modifier.fillMaxSize().padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                icon,
-                contentDescription = label,
-                tint = SkyBlue,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = label,
-                fontSize = 12.sp,
-                color = TextPrimary,
-                textAlign = TextAlign.Center
-            )
+            Icon(icon, label, tint = SkyBlue, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.height(6.dp))
+            Text(label, fontSize = 12.sp, color = colors.textPrimary, textAlign = TextAlign.Center)
         }
     }
 }
 
-// ==================== 预览 ====================
-@Preview(showBackground = true, showSystemUi = true, name = "个人资料")
+@Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun ProfileScreenPreview() {
     MuMuChatTheme {
-        ProfileScreen(
-            user = User(id = "me", name = "devin", phone = "+86 190****2755")
-        )
+        ProfileScreen(user = User(id = "me", name = "devin", phone = "+86 190****2755"))
     }
 }

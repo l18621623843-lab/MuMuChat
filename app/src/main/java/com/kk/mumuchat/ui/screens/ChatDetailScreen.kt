@@ -42,18 +42,26 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.EmojiEmotions
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Redeem
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.VideoCall
+import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -320,9 +328,8 @@ fun ChatDetailScreen(
         }
     }
 
-    val bgBrush = Brush.verticalGradient(
-        colors = listOf(Color(0xFF17293D), Color(0xFF0E1B2D), Color(0xFF142233))
-    )
+    val themeColors = LocalMuMuColors.current
+    val bgBrush = themeColors.chatBgBrush
 
     previewImageDesc?.let { desc ->
         ImagePreviewDialog(description = desc, onDismiss = { previewImageDesc = null })
@@ -437,36 +444,6 @@ fun ChatDetailScreen(
             )
         }
 
-        AnimatedVisibility(visible = showEmojiPanel) {
-            EmojiPanel(onSelect = { emoji ->
-                inputText += emoji
-            })
-        }
-
-        if (showAttachPanel) {
-            AttachmentPanel(
-                onVoice = {
-                    showAttachPanel = false
-                    showEmojiPanel = false
-                    isVoiceMode = true
-                    keyboardController?.hide()
-                },
-                onImage = {
-                    showAttachPanel = false
-                    imagePickerLauncher.launch("image/*")
-                },
-                onVideo = {
-                    showAttachPanel = false
-                    videoPickerLauncher.launch("video/*")
-                },
-                onCamera = {
-                    showAttachPanel = false
-                    cameraLauncher.launch(null)
-                },
-                onDismiss = { showAttachPanel = false }
-            )
-        }
-
         if (permissionTip != null) {
             PermissionTip(message = permissionTip ?: "")
         }
@@ -483,10 +460,6 @@ fun ChatDetailScreen(
                     forceScrollToBottom = true
                 }
             },
-            onSendImage = {
-                onSendImageState.value.invoke()
-                forceScrollToBottom = true
-            },
             onToggleVoice = {
                 isVoiceMode = !isVoiceMode
                 showAttachPanel = false
@@ -498,7 +471,6 @@ fun ChatDetailScreen(
             onAttachClick = {
                 showAttachPanel = !showAttachPanel
                 showEmojiPanel = false
-                isVoiceMode = false
                 keyboardController?.hide()
             },
             onEmojiClick = {
@@ -535,20 +507,52 @@ fun ChatDetailScreen(
             audioPermissionGranted = audioPermissionGranted,
             inputTextNotBlank = inputText.isNotBlank()
         )
+
+        // 表情面板（在输入栏下方）
+        AnimatedVisibility(visible = showEmojiPanel) {
+            EmojiPanel(onSelect = { emoji ->
+                inputText += emoji
+            })
+        }
+
+        // 附件面板（在输入栏下方）
+        AnimatedVisibility(visible = showAttachPanel) {
+            AttachmentPanel(
+                onVoice = {
+                    showAttachPanel = false
+                    showEmojiPanel = false
+                    isVoiceMode = true
+                    keyboardController?.hide()
+                },
+                onImage = {
+                    showAttachPanel = false
+                    imagePickerLauncher.launch("image/*")
+                },
+                onVideo = {
+                    showAttachPanel = false
+                    videoPickerLauncher.launch("video/*")
+                },
+                onCamera = {
+                    showAttachPanel = false
+                    cameraLauncher.launch(null)
+                },
+                onDismiss = { showAttachPanel = false }
+            )
+        }
     }
 }
 
 // ==================== 顶部栏 ====================
 @Composable
 fun ChatTopBar(chat: Chat?, onBackClick: () -> Unit) {
+    val colors = LocalMuMuColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(6.dp, ambientColor = Color.Black.copy(alpha = 0.3f))
+            .shadow(6.dp, ambientColor = Color.Black.copy(alpha = if (colors.isDark) 0.4f else 0.1f))
             .background(
-                Brush.horizontalGradient(
-                    colors = listOf(Color(0xFF1A3050), Color(0xFF1E3A55))
-                )
+                if (colors.isDark) Brush.horizontalGradient(listOf(Color(0xFF1A3050), Color(0xFF1E3A55)))
+                else Brush.horizontalGradient(listOf(Color(0xFFF2F6FA), Color(0xFFE8EFF6)))
             )
             .padding(horizontal = 4.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -560,11 +564,11 @@ fun ChatTopBar(chat: Chat?, onBackClick: () -> Unit) {
         Spacer(Modifier.weight(1f))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                chat?.name ?: "聊天", color = Color.White,
+                chat?.name ?: "聊天", color = colors.textPrimary,
                 fontSize = 17.sp, fontWeight = FontWeight.SemiBold
             )
             if (chat?.isGroup == true) {
-                Text("群组·点击查看", color = Color.White.copy(alpha = 0.45f), fontSize = 12.sp)
+                Text("群组·点击查看", color = colors.textSecondary, fontSize = 12.sp)
             }
         }
         Spacer(Modifier.weight(1f))
@@ -1225,7 +1229,7 @@ fun VideoPlayerDialog(description: String, onDismiss: () -> Unit) {
     }
 }
 
-// ==================== 附件面板（语音/图片/视频）====================
+// ==================== 附件面板（微信风格 2x4 网格）====================
 @Composable
 fun AttachmentPanel(
     onVoice: () -> Unit,
@@ -1234,47 +1238,87 @@ fun AttachmentPanel(
     onCamera: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    Row(
+    val colors = LocalMuMuColors.current
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF1A3050).copy(alpha = 0.95f))
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
+            .background(colors.panelBg)
+            .padding(horizontal = 16.dp, vertical = 16.dp)
     ) {
-        AttachmentItem(Icons.Default.Mic, "语音", Color(0xFF66BB6A), onVoice)
-        AttachmentItem(Icons.Default.Image, "图片", Color(0xFF42A5F5), onImage)
-        AttachmentItem(Icons.Default.Videocam, "视频", Color(0xFFAB47BC), onVideo)
-        AttachmentItem(Icons.Default.CameraAlt, "拍摄", Color(0xFFFF7043), onCamera)
+        // 第一行：相册、拍摄、视频通话、位置
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            AttachmentGridItem(Icons.Default.Image, "相册", onClick = onImage)
+            AttachmentGridItem(Icons.Default.CameraAlt, "拍摄", onClick = onCamera)
+            AttachmentGridItem(Icons.Default.VideoCall, "视频通话", onClick = onVideo)
+            AttachmentGridItem(Icons.Default.LocationOn, "位置", onClick = {})
+        }
+        Spacer(Modifier.height(20.dp))
+        // 第二行：红包、礼物、转账、语音输入
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            AttachmentGridItem(Icons.Default.Redeem, "红包", onClick = {})
+            AttachmentGridItem(Icons.Default.CardGiftcard, "礼物", onClick = {})
+            AttachmentGridItem(Icons.Default.MonetizationOn, "转账", onClick = {})
+            AttachmentGridItem(Icons.Default.Mic, "语音输入", onClick = onVoice)
+        }
+        Spacer(Modifier.height(16.dp))
+        // 底部页面指示器
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF888888))
+            )
+            Spacer(Modifier.width(6.dp))
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFCCCCCC))
+            )
+        }
     }
 }
 
 @Composable
-fun AttachmentItem(icon: ImageVector, label: String, color: Color, onClick: () -> Unit) {
+fun AttachmentGridItem(icon: ImageVector, label: String, onClick: () -> Unit) {
+    val colors = LocalMuMuColors.current
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable(onClick = onClick)
+        modifier = Modifier
+            .width(62.dp)
+            .clickable(onClick = onClick)
     ) {
         Box(
             modifier = Modifier
-                .size(52.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(color.copy(alpha = 0.15f)),
+                .size(56.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(colors.panelItemBg),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, label, tint = color, modifier = Modifier.size(26.dp))
+            Icon(icon, label, tint = colors.iconColor, modifier = Modifier.size(28.dp))
         }
         Spacer(Modifier.height(6.dp))
-        Text(label, color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
+        Text(label, color = colors.textSecondary, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
-// ==================== 底部输入栏 ====================
+// ==================== 底部输入栏（微信风格）====================
 @Composable
 fun ChatInputBar(
     inputText: String,
     onInputChange: (String) -> Unit,
     onSendText: () -> Unit,
-    onSendImage: () -> Unit,
     onToggleVoice: () -> Unit,
     onAttachClick: () -> Unit = {},
     onEmojiClick: () -> Unit = {},
@@ -1287,74 +1331,138 @@ fun ChatInputBar(
     inputTextNotBlank: Boolean,
     inputHeight: androidx.compose.ui.unit.Dp = 46.dp,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFF1A3050).copy(alpha = 0.85f), Color(0xFF1A3050))
-                )
-            )
-            .padding(horizontal = 6.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (isVoiceMode) {
-            HoldToTalkButton(
-                audioPermissionGranted = audioPermissionGranted,
-                onRequestPermission = onRequestPermission,
-                onStart = onStartRecord,
-                onCancelChange = onCancelChange,
-                onFinish = onFinishRecord,
-                modifier = Modifier.weight(1f).height(inputHeight)
-            )
-        } else {
-            OutlinedTextField(
-                value = inputText,
-                onValueChange = onInputChange,
-                placeholder = { Text("消息", color = Color.White.copy(alpha = 0.35f), fontSize = 14.sp) },
-                modifier = Modifier.weight(1f).height(inputHeight),
-                shape = RoundedCornerShape(23.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.White.copy(alpha = 0.15f),
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.08f),
-                    focusedContainerColor = Color.White.copy(alpha = 0.07f),
-                    unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    cursorColor = SkyBlue
-                ),
-                singleLine = true,
-                textStyle = TextStyle(fontSize = 14.sp)
-            )
-        }
-        IconButton(onClick = onEmojiClick, Modifier.size(40.dp)) {
-            Icon(Icons.Default.EmojiEmotions, "表情", tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.size(22.dp))
-        }
-        IconButton(onClick = onAttachClick, Modifier.size(40.dp)) {
-            Icon(Icons.Default.Add, "更多", tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.size(22.dp))
-        }
-        IconButton(
-            onClick = { if (inputTextNotBlank) onSendText() },
-            modifier = Modifier.size(40.dp),
-            enabled = inputTextNotBlank
+    val colors = LocalMuMuColors.current
+    val barBg = colors.inputBarBg
+    val iconColor = colors.iconColor
+
+    Column {
+        // 顶部分割线
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(0.5.dp)
+                .background(colors.divider)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(barBg)
+                .padding(horizontal = 6.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Default.Send,
-                "发送文字",
-                tint = if (inputTextNotBlank) SkyBlue else Color.White.copy(alpha = 0.35f),
-                modifier = Modifier.size(22.dp)
-            )
-        }
-        IconButton(onClick = onSendImage, Modifier.size(40.dp)) {
-            Icon(Icons.Default.Image, "发送图片", tint = SkyBlue.copy(alpha = 0.9f), modifier = Modifier.size(22.dp))
-        }
-        IconButton(onClick = onToggleVoice, Modifier.size(40.dp)) {
-            Icon(
-                if (isVoiceMode) Icons.Default.Keyboard else Icons.Default.Mic,
-                if (isVoiceMode) "切换键盘" else "语音输入",
-                tint = if (isVoiceMode) SkyBlue else Color.White.copy(alpha = 0.7f),
-                modifier = Modifier.size(22.dp)
-            )
+            // 左侧：语音/键盘切换按钮
+            IconButton(onClick = onToggleVoice, Modifier.size(38.dp)) {
+                if (isVoiceMode) {
+                    // 语音模式下显示键盘图标（带圆圈）
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .border(1.5.dp, iconColor, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Keyboard,
+                            "切换键盘",
+                            tint = iconColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                } else {
+                    // 文字模式下显示语音波形图标
+                    Icon(
+                        Icons.Default.GraphicEq,
+                        "语音输入",
+                        tint = iconColor,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+
+            // 中间：输入框 / 按住说话按钮
+            if (isVoiceMode) {
+                HoldToTalkButton(
+                    audioPermissionGranted = audioPermissionGranted,
+                    onRequestPermission = onRequestPermission,
+                    onStart = onStartRecord,
+                    onCancelChange = onCancelChange,
+                    onFinish = onFinishRecord,
+                    modifier = Modifier.weight(1f).height(inputHeight)
+                )
+            } else {
+                OutlinedTextField(
+                    value = inputText,
+                    onValueChange = onInputChange,
+                    placeholder = { Text("", color = Color(0xFFBBBBBB), fontSize = 15.sp) },
+                    modifier = Modifier.weight(1f).heightIn(min = inputHeight),
+                    shape = RoundedCornerShape(6.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = colors.inputFieldBorder,
+                        unfocusedBorderColor = colors.inputFieldBorder,
+                        focusedContainerColor = colors.inputFieldBg,
+                        unfocusedContainerColor = colors.inputFieldBg,
+                        focusedTextColor = colors.inputFieldText,
+                        unfocusedTextColor = colors.inputFieldText,
+                        cursorColor = Color(0xFF07C160)
+                    ),
+                    singleLine = true,
+                    textStyle = TextStyle(fontSize = 15.sp)
+                )
+            }
+
+            // 右侧图标组
+            if (!isVoiceMode) {
+                // 文字模式：麦克风图标（语音输入）
+                IconButton(onClick = {
+                    // 模拟语音输入：切换到语音模式
+                    onToggleVoice()
+                }, Modifier.size(38.dp)) {
+                    Icon(
+                        Icons.Default.Mic,
+                        "语音",
+                        tint = iconColor,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+            }
+
+            // 表情按钮
+            IconButton(onClick = onEmojiClick, Modifier.size(38.dp)) {
+                Icon(
+                    Icons.Outlined.EmojiEmotions,
+                    "表情",
+                    tint = iconColor,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+
+            // 发送按钮（有文字时）或 + 按钮（无文字时）
+            if (inputTextNotBlank) {
+                Box(
+                    modifier = Modifier
+                        .height(34.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF07C160))
+                        .clickable { onSendText() }
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "发送",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            } else {
+                IconButton(onClick = onAttachClick, Modifier.size(38.dp)) {
+                    Icon(
+                        Icons.Default.AddCircle,
+                        "更多",
+                        tint = iconColor,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -1368,11 +1476,12 @@ fun HoldToTalkButton(
     onFinish: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val colors = LocalMuMuColors.current
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(22.dp))
-            .background(Color.White.copy(alpha = 0.08f))
-            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(22.dp))
+            .clip(RoundedCornerShape(6.dp))
+            .background(colors.inputFieldBg)
+            .border(1.dp, colors.inputFieldBorder, RoundedCornerShape(6.dp))
             .pointerInput(audioPermissionGranted) {
                 awaitEachGesture {
                     val down = awaitFirstDown()
@@ -1407,21 +1516,12 @@ fun HoldToTalkButton(
             },
         contentAlignment = Alignment.Center
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Default.Mic,
-                "按住说话",
-                tint = if (audioPermissionGranted) SkyBlue else Color.White.copy(alpha = 0.55f),
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = "按住说话",
-                color = Color.White.copy(alpha = 0.8f),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-            )
-        }
+        Text(
+            text = "按住 说话",
+            color = colors.textPrimary,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
@@ -1485,22 +1585,23 @@ fun RecordingOverlay(seconds: Int, maxSeconds: Int, isCanceling: Boolean) {
 
 @Composable
 fun EmojiPanel(onSelect: (String) -> Unit) {
+    val colors = LocalMuMuColors.current
     val emojis = listOf("😀", "😁", "😂", "🥲", "😍", "😎", "🥳", "🤝", "✨", "🔥", "💬", "🎧")
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF1A3050).copy(alpha = 0.92f))
+            .background(colors.panelBg)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
         emojis.forEach { emoji ->
             Text(
                 text = emoji,
-                fontSize = 20.sp,
+                fontSize = 24.sp,
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
                     .clickable { onSelect(emoji) }
-                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                    .padding(horizontal = 4.dp, vertical = 4.dp)
             )
         }
     }
