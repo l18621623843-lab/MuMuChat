@@ -140,6 +140,12 @@ class WebRTCManager(private val context: Context) {
 
     fun play(myPhone: String, targetPhone: String, callback: (Boolean, String?) -> Unit) {
         val streamUrl = "webrtc://$SRS_HOST/live/call_${targetPhone}_${myPhone}"
+
+        // 清理上一次的 playPc
+        playPc?.close()
+        playPc?.dispose()
+        playPc = null
+
         playPc = createPeerConnection(object : PeerConnectionObserverAdapter() {
             override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
                 Log.d(TAG, "Play ICE state: $state")

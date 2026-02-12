@@ -62,13 +62,28 @@ class CallViewModel(application: Application) : AndroidViewModel(application) {
         manager.publish(myPhone, targetPhone) { success, error ->
             if (success) {
                 _state.update { it.copy(status = CallStatus.RINGING) }
-                // Start playing remote stream after a short delay
+                // Poll for remote stream — keep retrying until it appears or timeout
                 viewModelScope.launch {
-                    delay(1000)
-                    manager.play(myPhone, targetPhone) { playSuccess, playError ->
-                        if (!playSuccess) {
-                            Log.w(TAG, "Play failed: $playError (remote may not be streaming yet)")
+                    val maxAttempts = 60  // 最多尝试60次，约60秒
+                    var attempt = 0
+                    var played = false
+                    while (attempt < maxAttempts && !played && _state.value.status != CallStatus.ENDED) {
+                        delay(1000)
+                        attempt++
+                        Log.d(TAG, "Trying to play remote stream, attempt $attempt/$maxAttempts")
+                        manager.play(myPhone, targetPhone) { playSuccess, playError ->
+                            if (playSuccess) {
+                                played = true
+                                Log.d(TAG, "Play remote stream success on attempt $attempt")
+                            } else {
+                                Log.w(TAG, "Play attempt $attempt failed: $playError")
+                            }
                         }
+                        // 给 play 请求一点时间完成
+                        delay(500)
+                    }
+                    if (!played && _state.value.status != CallStatus.ENDED) {
+                        Log.w(TAG, "Gave up waiting for remote stream after $maxAttempts attempts")
                     }
                 }
             } else {
