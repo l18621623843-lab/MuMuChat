@@ -1,5 +1,6 @@
 package com.kk.mumuchat.viewmodel
 
+import android.net.Uri
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
@@ -217,12 +218,15 @@ class ChatViewModel : ViewModel() {
     /**
      * 发送图片消息
      * @param chatId 目标会话
+     * @param uri 图片URI
      */
-    fun sendImageMessage(chatId: String) {
+    fun sendImageMessage(chatId: String, uri: Uri) {
         addMessage(
-            chatId, "图片",
+            chatId,
+            "图片",
             MessageType.IMAGE,
-            mediaDescription = "IMG_${System.currentTimeMillis()}.jpg"
+            mediaDescription = "IMG_${System.currentTimeMillis()}.jpg",
+            mediaUri = uri  // 传递真实URI
         )
         simulateReply(chatId)
     }
@@ -230,13 +234,17 @@ class ChatViewModel : ViewModel() {
     /**
      * 发送视频消息
      * @param chatId 目标会话
+     * @param uri 视频URI
+     * @param duration 视频时长
      */
-    fun sendVideoMessage(chatId: String) {
+    fun sendVideoMessage(chatId: String, uri: Uri, duration: Int) {
         addMessage(
-            chatId, "视频",
+            chatId,
+            "视频",
             MessageType.VIDEO,
-            duration = (10..120).random(),
-            mediaDescription = "VID_${System.currentTimeMillis()}.mp4"
+            duration = duration,
+            mediaDescription = "VID_${System.currentTimeMillis()}.mp4",
+            mediaUri = uri  // 传递真实URI
         )
         simulateReply(chatId)
     }
@@ -249,7 +257,8 @@ class ChatViewModel : ViewModel() {
         content: String,
         type: MessageType,
         duration: Int = 0,
-        mediaDescription: String = ""
+        mediaDescription: String = "",
+        mediaUri: Uri? = null  // 添加URI参数
     ) {
         val messages = messagesMap.getOrPut(chatId) { mutableStateListOf() }
         messages.add(
@@ -264,7 +273,8 @@ class ChatViewModel : ViewModel() {
                 messageType = type,
                 isRead = true,
                 duration = duration,
-                mediaDescription = mediaDescription
+                mediaDescription = mediaDescription,
+                mediaUri = mediaUri  // 保存URI
             )
         )
         // 更新聊天列表最后消息

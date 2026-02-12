@@ -98,11 +98,11 @@ fun AppNavigation(chatViewModel: ChatViewModel = viewModel()) {
                     onSendVoice = { duration ->
                         chatViewModel.sendVoiceMessage(chatId, duration)
                     },
-                    onSendImage = {
-                        chatViewModel.sendImageMessage(chatId)
+                    onSendImage = { uri ->
+                        chatViewModel.sendImageMessage(chatId, uri)
                     },
-                    onSendVideo = {
-                        chatViewModel.sendVideoMessage(chatId)
+                    onSendVideo = { uri, duration ->
+                        chatViewModel.sendVideoMessage(chatId, uri, duration)
                     }
                 )
             }

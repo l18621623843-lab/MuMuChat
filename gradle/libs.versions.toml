@@ -49,7 +49,8 @@ lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-ru
 activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 # Coil Compose（在 Compose 中加载网络图片）
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
-
+# Coli Compose（在Compose 中加载网络视频）
+coil-video = { group = "io.coil-kt", name = "coil-video", version.ref = "coil" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 # Kotlin Android 插件

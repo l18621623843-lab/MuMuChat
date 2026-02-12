@@ -1,5 +1,5 @@
 package com.kk.mumuchat.model
-
+import android.net.Uri
 /**
  * 聊天消息数据模型
  * @param id 消息唯一标识
@@ -13,6 +13,7 @@ package com.kk.mumuchat.model
  * @param isRead 是否已读
  * @param duration 语音/视频时长（秒），仅语音和视频消息使用
  * @param mediaDescription 媒体描述（图片/视频的简短说明）
+ * @param mediaUri 媒体文件URI（图片/视频的真实路径）
  */
 data class Message(
     val id: String,
@@ -25,7 +26,8 @@ data class Message(
     val messageType: MessageType = MessageType.TEXT,
     val isRead: Boolean = false,
     val duration: Int = 0,
-    val mediaDescription: String = ""
+    val mediaDescription: String = "",
+    val mediaUri: Uri? = null  // 新增：媒体文件URI
 )
 
 /**

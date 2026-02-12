@@ -68,6 +68,9 @@ dependencies {
     // Coil（图片加载）
     implementation(libs.coil.compose)
 
+    // Coil（视频加载）
+    implementation(libs.coil.video)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

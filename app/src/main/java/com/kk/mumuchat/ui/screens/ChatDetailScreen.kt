@@ -2,6 +2,7 @@ package com.kk.mumuchat.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -29,7 +30,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -46,8 +46,6 @@ import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.EmojiEmotions
-import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.LocationOn
@@ -58,7 +56,6 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Redeem
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.VideoCall
 import androidx.compose.material.icons.outlined.EmojiEmotions
@@ -86,12 +83,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -105,6 +102,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.request.videoFrameMillis
 import com.kk.mumuchat.model.Chat
 import com.kk.mumuchat.model.Message
 import com.kk.mumuchat.model.MessageType
@@ -128,7 +128,8 @@ private data class UploadTask(
     val progress: Float,
     val status: UploadStatus,
     val durationSec: Int = 0,
-    val errorMessage: String = ""
+    val errorMessage: String = "",
+    val uri: Uri? = null
 )
 
 /**
@@ -143,8 +144,8 @@ fun ChatDetailScreen(
     onBackClick: () -> Unit,
     onSendMessage: (String) -> Unit,
     onSendVoice: (Int) -> Unit = {},
-    onSendImage: () -> Unit = {},
-    onSendVideo: () -> Unit = {}
+    onSendImage: (Uri) -> Unit = {},
+    onSendVideo: (Uri, Int) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
@@ -162,8 +163,8 @@ fun ChatDetailScreen(
     var showAttachPanel by remember { mutableStateOf(false) }
     var showEmojiPanel by remember { mutableStateOf(false) }
     var isVoiceMode by remember { mutableStateOf(false) }
-    var previewImageDesc by remember { mutableStateOf<String?>(null) }
-    var playVideoDesc by remember { mutableStateOf<String?>(null) }
+    var previewImageUri by remember { mutableStateOf<Uri?>(null) }
+    var playVideoUri by remember { mutableStateOf<Uri?>(null) }
     var playingVoiceId by remember { mutableStateOf<String?>(null) }
     var isRecording by remember { mutableStateOf(false) }
     var recordSeconds by remember { mutableIntStateOf(0) }
@@ -205,7 +206,7 @@ fun ChatDetailScreen(
         if (uris.size > 9) {
             permissionTip = "最多选择9张图片"
         }
-        pick.forEachIndexed { index, _ ->
+        pick.forEachIndexed { index, uri ->
             val sizeMb = Random.nextInt(1, 8)
             val label = "图片 ${index + 1} · 1080p · 80%"
             enqueueUpload(
@@ -213,8 +214,9 @@ fun ChatDetailScreen(
                 coroutineScope = coroutineScope,
                 type = UploadType.Image,
                 label = label,
-                sizeMb = sizeMb
-            ) { onSendImageState.value.invoke() }
+                sizeMb = sizeMb,
+                uri = uri
+            ) { onSendImageState.value.invoke(uri) }
         }
     }
 
@@ -223,14 +225,17 @@ fun ChatDetailScreen(
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         val sizeMb = Random.nextInt(20, 120)
+        val duration = Random.nextInt(10, 180)
         val label = "视频 · 720p · 1Mbps"
         enqueueUpload(
             uploadTasks = uploadTasks,
             coroutineScope = coroutineScope,
             type = UploadType.Video,
             label = label,
-            sizeMb = sizeMb
-        ) { onSendVideoState.value.invoke() }
+            sizeMb = sizeMb,
+            uri = uri,
+            durationSec = duration
+        ) { onSendVideoState.value.invoke(uri, duration) }
     }
 
     val cameraLauncher = rememberLauncherForActivityResult(
@@ -243,8 +248,9 @@ fun ChatDetailScreen(
             coroutineScope = coroutineScope,
             type = UploadType.Camera,
             label = label,
-            sizeMb = Random.nextInt(2, 10)
-        ) { onSendImageState.value.invoke() }
+            sizeMb = Random.nextInt(2, 10),
+            uri = null
+        ) { }
     }
 
     val mergedMessages by remember {
@@ -331,12 +337,12 @@ fun ChatDetailScreen(
     val themeColors = LocalMuMuColors.current
     val bgBrush = themeColors.chatBgBrush
 
-    previewImageDesc?.let { desc ->
-        ImagePreviewDialog(description = desc, onDismiss = { previewImageDesc = null })
+    previewImageUri?.let { uri ->
+        ImagePreviewDialog(uri = uri, onDismiss = { previewImageUri = null })
     }
 
-    playVideoDesc?.let { desc ->
-        VideoPlayerDialog(description = desc, onDismiss = { playVideoDesc = null })
+    playVideoUri?.let { uri ->
+        VideoPlayerDialog(uri = uri, onDismiss = { playVideoUri = null })
     }
 
     if (isRecording) {
@@ -382,8 +388,12 @@ fun ChatDetailScreen(
                         onVoiceClick = {
                             playingVoiceId = if (playingVoiceId == message.id) null else message.id
                         },
-                        onImageClick = { previewImageDesc = message.mediaDescription },
-                        onVideoClick = { playVideoDesc = message.mediaDescription },
+                        onImageClick = {
+                            message.mediaUri?.let { previewImageUri = it }
+                        },
+                        onVideoClick = {
+                            message.mediaUri?.let { playVideoUri = it }
+                        },
                         onCopy = {
                             val text = when (message.messageType) {
                                 MessageType.TEXT -> message.content
@@ -435,9 +445,13 @@ fun ChatDetailScreen(
                     val task = uploadTasks.firstOrNull { it.id == taskId } ?: return@UploadQueuePanel
                     restartUpload(uploadTasks, coroutineScope, task) {
                         when (task.type) {
-                            UploadType.Video -> onSendVideoState.value.invoke()
+                            UploadType.Video -> task.uri?.let { uri ->
+                                onSendVideoState.value.invoke(uri, task.durationSec.coerceAtLeast(1))
+                            }
                             UploadType.Voice -> onSendVoiceState.value.invoke(task.durationSec.coerceAtLeast(1))
-                            UploadType.Image, UploadType.Camera -> onSendImageState.value.invoke()
+                            UploadType.Image, UploadType.Camera -> task.uri?.let { uri ->
+                                onSendImageState.value.invoke(uri)
+                            }
                         }
                     }
                 }
@@ -508,14 +522,12 @@ fun ChatDetailScreen(
             inputTextNotBlank = inputText.isNotBlank()
         )
 
-        // 表情面板（在输入栏下方）
         AnimatedVisibility(visible = showEmojiPanel) {
             EmojiPanel(onSelect = { emoji ->
                 inputText += emoji
             })
         }
 
-        // 附件面板（在输入栏下方）
         AnimatedVisibility(visible = showAttachPanel) {
             AttachmentPanel(
                 onVoice = {
@@ -617,35 +629,29 @@ private fun MessageItem(
             .fillMaxWidth()
             .padding(vertical = 6.dp),
         horizontalArrangement = if (message.isSentByMe) Arrangement.End else Arrangement.Start,
-        verticalAlignment = Alignment.Top  // 关键改动：使用顶部对齐
+        verticalAlignment = Alignment.Top
     ) {
-        // 接收方消息：头像在左
         if (!message.isSentByMe) {
             AvatarCircle(
                 SkyBlueLight.copy(alpha = 0.3f),
                 SkyBlue,
-                modifier = Modifier.padding(top = 2.dp)  // 微调头像位置
+                modifier = Modifier.padding(top = 2.dp)
             )
-            Spacer(Modifier.width(4.dp))  // 减小间距，让气泡更靠近头像
+            Spacer(Modifier.width(4.dp))
         }
 
-        // 消息内容列
         Column(
             modifier = Modifier.widthIn(max = 260.dp),
             horizontalAlignment = if (message.isSentByMe) Alignment.End else Alignment.Start
         ) {
-            // 群聊显示发送者名称
-            if (isGroup && !message.isSentByMe) {
-                Text(
-                    message.senderName,
-                    color = SkyBlue.copy(alpha = 0.85f),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)
-                )
-            }
+            Text(
+                message.senderName,
+                color = SkyBlue.copy(alpha = 0.85f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)
+            )
 
-            // 消息气泡
             Box {
                 when (message.messageType) {
                     MessageType.VOICE -> VoiceBubble(
@@ -671,7 +677,6 @@ private fun MessageItem(
                     )
                 }
 
-                // 长按菜单
                 DropdownMenu(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false }
@@ -702,7 +707,6 @@ private fun MessageItem(
                 }
             }
 
-            // 时间戳和状态
             Row(
                 modifier = Modifier
                     .padding(horizontal = 10.dp, vertical = 3.dp),
@@ -725,13 +729,12 @@ private fun MessageItem(
             }
         }
 
-        // 发送方消息：头像在右
         if (message.isSentByMe) {
-            Spacer(Modifier.width(4.dp))  // 减小间距
+            Spacer(Modifier.width(4.dp))
             AvatarCircle(
                 Color.White.copy(alpha = 0.12f),
                 Color.White.copy(alpha = 0.6f),
-                modifier = Modifier.padding(top = 2.dp)  // 微调头像位置
+                modifier = Modifier.padding(top = 2.dp)
             )
         }
     }
@@ -742,10 +745,10 @@ private fun MessageItem(
 fun AvatarCircle(bgColor: Color, iconColor: Color, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .size(38.dp)  // 稍微增大头像
+            .size(38.dp)
             .clip(CircleShape)
             .background(bgColor)
-            .border(1.dp, iconColor.copy(alpha = 0.2f), CircleShape),  // 添加边框
+            .border(1.dp, iconColor.copy(alpha = 0.2f), CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -767,11 +770,10 @@ fun TextBubble(message: Message, onClick: () -> Unit, onLongPress: () -> Unit) {
         bottomEnd = 16.dp
     )
 
-    // 优化配色方案
     val bubbleBrush = if (message.isSentByMe) {
         Brush.linearGradient(
             listOf(
-                Color(0xFF4A90E2),  // 更饱和的蓝色
+                Color(0xFF4A90E2),
                 Color(0xFF5BA3F5),
                 Color(0xFF6BB6FF)
             )
@@ -911,7 +913,7 @@ fun VoiceBubble(message: Message, isPlaying: Boolean, onClick: () -> Unit, onLon
     }
 }
 
-// ==================== 优化后的图片气泡 ====================
+// ==================== 优化后的图片气泡（使用真实图片）====================
 @Composable
 fun ImageBubble(message: Message, onClick: () -> Unit, onLongPress: () -> Unit) {
     val shape = RoundedCornerShape(
@@ -920,20 +922,6 @@ fun ImageBubble(message: Message, onClick: () -> Unit, onLongPress: () -> Unit) 
         bottomStart = 12.dp,
         bottomEnd = 12.dp
     )
-
-    val gradientColors = if (message.isSentByMe) {
-        listOf(
-            Color(0xFF29B6F6),
-            Color(0xFF4FC3F7),
-            Color(0xFF81D4FA)
-        )
-    } else {
-        listOf(
-            Color(0xFFE8F5E9),
-            Color(0xFFC8E6C9),
-            Color(0xFFAED581)
-        )
-    }
 
     Column(
         modifier = Modifier
@@ -957,20 +945,48 @@ fun ImageBubble(message: Message, onClick: () -> Unit, onLongPress: () -> Unit) 
                 onLongClick = onLongPress
             )
     ) {
-        Box(
-            modifier = Modifier
-                .size(width = 200.dp, height = 140.dp)
-                .clip(shape)
-                .background(Brush.linearGradient(gradientColors)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                Icons.Default.Image,
+        if (message.mediaUri != null) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(message.mediaUri)
+                    .crossfade(true)
+                    .build(),
                 contentDescription = "图片",
-                tint = Color.White.copy(alpha = 0.75f),
-                modifier = Modifier.size(44.dp)
+                modifier = Modifier
+                    .size(width = 200.dp, height = 140.dp)
+                    .clip(shape),
+                contentScale = ContentScale.Crop
             )
+        } else {
+            val gradientColors = if (message.isSentByMe) {
+                listOf(
+                    Color(0xFF29B6F6),
+                    Color(0xFF4FC3F7),
+                    Color(0xFF81D4FA)
+                )
+            } else {
+                listOf(
+                    Color(0xFFE8F5E9),
+                    Color(0xFFC8E6C9),
+                    Color(0xFFAED581)
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(width = 200.dp, height = 140.dp)
+                    .clip(shape)
+                    .background(Brush.linearGradient(gradientColors)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Image,
+                    contentDescription = "图片",
+                    tint = Color.White.copy(alpha = 0.75f),
+                    modifier = Modifier.size(44.dp)
+                )
+            }
         }
+
         if (message.mediaDescription.isNotEmpty()) {
             Text(
                 message.mediaDescription,
@@ -985,7 +1001,7 @@ fun ImageBubble(message: Message, onClick: () -> Unit, onLongPress: () -> Unit) 
     }
 }
 
-// ==================== 优化后的视频气泡 ====================
+// ==================== 优化后的视频气泡（使用真实视频缩略图）====================
 @Composable
 fun VideoBubble(message: Message, onClick: () -> Unit, onLongPress: () -> Unit) {
     val shape = RoundedCornerShape(
@@ -993,12 +1009,6 @@ fun VideoBubble(message: Message, onClick: () -> Unit, onLongPress: () -> Unit) 
         topEnd = if (message.isSentByMe) 4.dp else 12.dp,
         bottomStart = 12.dp,
         bottomEnd = 12.dp
-    )
-
-    val gradientColors = listOf(
-        Color(0xFF1A237E),
-        Color(0xFF283593),
-        Color(0xFF3949AB)
     )
 
     Column(
@@ -1026,12 +1036,37 @@ fun VideoBubble(message: Message, onClick: () -> Unit, onLongPress: () -> Unit) 
             modifier = Modifier
                 .size(width = 210.dp, height = 150.dp)
                 .clip(shape)
-                .background(Brush.linearGradient(gradientColors)),
-            contentAlignment = Alignment.Center
         ) {
-            // 播放按钮
+            if (message.mediaUri != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(message.mediaUri)
+                        .videoFrameMillis(1000)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "视频",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(
+                                listOf(
+                                    Color(0xFF1A237E),
+                                    Color(0xFF283593),
+                                    Color(0xFF3949AB)
+                                )
+                            )
+                        )
+                )
+            }
+
             Box(
                 modifier = Modifier
+                    .align(Alignment.Center)
                     .size(56.dp)
                     .clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.25f))
@@ -1046,7 +1081,6 @@ fun VideoBubble(message: Message, onClick: () -> Unit, onLongPress: () -> Unit) 
                 )
             }
 
-            // 时长标签
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -1080,71 +1114,65 @@ fun VideoBubble(message: Message, onClick: () -> Unit, onLongPress: () -> Unit) 
     }
 }
 
-// ==================== 图片预览弹窗 ====================
+// ==================== 图片预览弹窗（使用真实图片）====================
 @Composable
-fun ImagePreviewDialog(description: String, onDismiss: () -> Unit) {
+fun ImagePreviewDialog(uri: Uri, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.75f))
+                .background(Color.Black.copy(alpha = 0.9f))
                 .clickable(onClick = onDismiss),
             contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 24.dp)
-                    .shadow(12.dp, RoundedCornerShape(22.dp))
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color(0xFF0F2338), Color(0xFF17334A), Color(0xFF102638))
-                        )
-                    )
-                    .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(22.dp))
-                    .clickable(onClick = {})
-                    .padding(16.dp)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxSize()
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("图片预览", color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.weight(1f))
-                        IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, "关闭", tint = Color.White, modifier = Modifier.size(20.dp))
-                        }
-                    }
-                    Box(
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    IconButton(
+                        onClick = onDismiss,
                         modifier = Modifier
-                            .size(width = 280.dp, height = 360.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(Color(0xFF4FC3F7), Color(0xFF81D4FA), Color(0xFFB3E5FC))
-                                )
-                            )
-                            .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(16.dp)),
-                        contentAlignment = Alignment.Center
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.5f))
                     ) {
                         Icon(
-                            Icons.Default.Image, "预览",
-                            tint = Color.White.copy(alpha = 0.65f),
-                            modifier = Modifier.size(72.dp)
+                            Icons.Default.Close,
+                            "关闭",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
-                    Spacer(Modifier.height(14.dp))
-                    Text(description, color = Color.White.copy(alpha = 0.75f), fontSize = 13.sp)
                 }
+
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(uri)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "预览图片",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(horizontal = 16.dp),
+                    contentScale = ContentScale.Fit
+                )
+
+                Spacer(Modifier.height(60.dp))
             }
         }
     }
 }
 
-// ==================== 视频播放弹窗 ====================
+// ==================== 视频播放弹窗（使用真实视频）====================
 @Composable
-fun VideoPlayerDialog(description: String, onDismiss: () -> Unit) {
+fun VideoPlayerDialog(uri: Uri, onDismiss: () -> Unit) {
     val transition = rememberInfiniteTransition(label = "video")
     val progress by transition.animateFloat(
         initialValue = 0f, targetValue = 1f,
@@ -1156,74 +1184,87 @@ fun VideoPlayerDialog(description: String, onDismiss: () -> Unit) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.8f)),
+                .background(Color.Black.copy(alpha = 0.9f)),
             contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 24.dp)
-                    .shadow(12.dp, RoundedCornerShape(22.dp))
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color(0xFF0F2136), Color(0xFF162A45), Color(0xFF101F32))
-                        )
-                    )
-                    .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(22.dp))
-                    .clickable(onClick = {})
-                    .padding(16.dp)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxSize()
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.5f))
                     ) {
-                        Text("视频预览", color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.weight(1f))
-                        IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, "关闭", tint = Color.White, modifier = Modifier.size(20.dp))
-                        }
+                        Icon(
+                            Icons.Default.Close,
+                            "关闭",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(horizontal = 16.dp)
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(uri)
+                            .videoFrameMillis(1000)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "视频预览",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(16.dp)),
+                        contentScale = ContentScale.Fit
+                    )
+
                     Box(
                         modifier = Modifier
-                            .size(width = 300.dp, height = 200.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(Color(0xFF1A237E), Color(0xFF283593), Color(0xFF3949AB))
-                                )
-                            )
-                            .border(1.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(16.dp)),
+                            .align(Alignment.Center)
+                            .size(80.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.3f))
+                            .border(3.dp, Color.White.copy(alpha = 0.6f), CircleShape)
+                            .clickable { },
                         contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(60.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.2f))
-                                .border(1.dp, Color.White.copy(alpha = 0.45f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.PlayArrow, "播放",
-                                tint = Color.White,
-                                modifier = Modifier.size(30.dp)
-                            )
-                        }
+                        Icon(
+                            Icons.Default.PlayArrow,
+                            "播放",
+                            tint = Color.White,
+                            modifier = Modifier.size(40.dp)
+                        )
                     }
-                    Spacer(Modifier.height(12.dp))
-                    LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier
-                            .width(300.dp)
-                            .height(3.dp)
-                            .clip(RoundedCornerShape(1.5.dp)),
-                        color = SkyBlue,
-                        trackColor = Color.White.copy(alpha = 0.2f)
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Text(description, color = Color.White.copy(alpha = 0.75f), fontSize = 13.sp)
                 }
+
+                Spacer(Modifier.height(16.dp))
+
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 32.dp)
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(1.5.dp)),
+                    color = SkyBlue,
+                    trackColor = Color.White.copy(alpha = 0.2f)
+                )
+
+                Spacer(Modifier.height(60.dp))
             }
         }
     }
@@ -1246,7 +1287,6 @@ fun AttachmentPanel(
             .background(colors.panelBg)
             .padding(horizontal = 16.dp, vertical = 16.dp)
     ) {
-        // 第一行：相册、拍摄、视频通话、位置
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
@@ -1257,7 +1297,6 @@ fun AttachmentPanel(
             AttachmentGridItem(Icons.Default.LocationOn, "位置", onClick = {})
         }
         Spacer(Modifier.height(20.dp))
-        // 第二行：红包、礼物、转账、语音输入
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
@@ -1268,7 +1307,6 @@ fun AttachmentPanel(
             AttachmentGridItem(Icons.Default.Mic, "语音输入", onClick = onVoice)
         }
         Spacer(Modifier.height(16.dp))
-        // 底部页面指示器
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center
@@ -1336,7 +1374,6 @@ fun ChatInputBar(
     val iconColor = colors.iconColor
 
     Column {
-        // 顶部分割线
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1350,10 +1387,8 @@ fun ChatInputBar(
                 .padding(horizontal = 6.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 左侧：语音/键盘切换按钮
             IconButton(onClick = onToggleVoice, Modifier.size(38.dp)) {
                 if (isVoiceMode) {
-                    // 语音模式下显示键盘图标（带圆圈）
                     Box(
                         modifier = Modifier
                             .size(28.dp)
@@ -1368,9 +1403,8 @@ fun ChatInputBar(
                         )
                     }
                 } else {
-                    // 文字模式下显示语音波形图标
                     Icon(
-                        Icons.Default.GraphicEq,
+                        Icons.Default.Mic,
                         "语音输入",
                         tint = iconColor,
                         modifier = Modifier.size(28.dp)
@@ -1378,7 +1412,6 @@ fun ChatInputBar(
                 }
             }
 
-            // 中间：输入框 / 按住说话按钮
             if (isVoiceMode) {
                 HoldToTalkButton(
                     audioPermissionGranted = audioPermissionGranted,
@@ -1409,23 +1442,6 @@ fun ChatInputBar(
                 )
             }
 
-            // 右侧图标组
-            if (!isVoiceMode) {
-                // 文字模式：麦克风图标（语音输入）
-                IconButton(onClick = {
-                    // 模拟语音输入：切换到语音模式
-                    onToggleVoice()
-                }, Modifier.size(38.dp)) {
-                    Icon(
-                        Icons.Default.Mic,
-                        "语音",
-                        tint = iconColor,
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
-            }
-
-            // 表情按钮
             IconButton(onClick = onEmojiClick, Modifier.size(38.dp)) {
                 Icon(
                     Icons.Outlined.EmojiEmotions,
@@ -1435,7 +1451,6 @@ fun ChatInputBar(
                 )
             }
 
-            // 发送按钮（有文字时）或 + 按钮（无文字时）
             if (inputTextNotBlank) {
                 Box(
                     modifier = Modifier
@@ -1739,6 +1754,7 @@ private fun enqueueUpload(
     label: String,
     sizeMb: Int,
     durationSec: Int = 0,
+    uri: Uri? = null,
     onComplete: () -> Unit
 ) {
     val task = UploadTask(
@@ -1748,28 +1764,11 @@ private fun enqueueUpload(
         sizeMb = sizeMb,
         progress = 0f,
         status = UploadStatus.Compressing,
-        durationSec = durationSec
+        durationSec = durationSec,
+        uri = uri
     )
     uploadTasks.add(task)
     restartUpload(uploadTasks, coroutineScope, task, onComplete)
-}
-
-private fun enqueueVoiceUpload(
-    uploadTasks: MutableList<UploadTask>,
-    coroutineScope: CoroutineScope,
-    duration: Int,
-    onComplete: () -> Unit
-) {
-    val sizeMb = if (duration < 4) 1 else duration / 4
-    enqueueUpload(
-        uploadTasks = uploadTasks,
-        coroutineScope = coroutineScope,
-        type = UploadType.Voice,
-        label = "语音 · ${duration}秒 · AMR",
-        sizeMb = sizeMb,
-        durationSec = duration,
-        onComplete = onComplete
-    )
 }
 
 private fun restartUpload(
@@ -1827,7 +1826,6 @@ private fun updateTask(
     }
 }
 
-// ==================== 预览 ====================
 @Preview(showBackground = true, showSystemUi = true, name = "聊天详情")
 @Composable
 fun ChatDetailScreenPreview() {
