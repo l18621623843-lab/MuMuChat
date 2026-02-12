@@ -646,7 +646,7 @@ private fun MessageItem(
         ) {
             Text(
                 message.senderName,
-                color = SkyBlue.copy(alpha = 0.85f),
+                color = Color.LightGray.copy(alpha = 0.85f),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)
@@ -732,8 +732,8 @@ private fun MessageItem(
         if (message.isSentByMe) {
             Spacer(Modifier.width(4.dp))
             AvatarCircle(
-                Color.White.copy(alpha = 0.12f),
-                Color.White.copy(alpha = 0.6f),
+                Color.LightGray.copy(alpha = 0.12f),
+                Color.LightGray.copy(alpha = 0.6f),
                 modifier = Modifier.padding(top = 2.dp)
             )
         }
