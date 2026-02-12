@@ -76,6 +76,9 @@ dependencies {
     implementation(libs.media3.ui)
     implementation(libs.media3.session)
 
+    // Biometric（指纹认证）
+    implementation(libs.biometric)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

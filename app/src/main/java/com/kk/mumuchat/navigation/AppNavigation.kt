@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -28,7 +29,9 @@ import com.kk.mumuchat.ui.screens.ChatDetailScreen
 import com.kk.mumuchat.ui.screens.ChatListScreen
 import com.kk.mumuchat.ui.screens.ContactsScreen
 import com.kk.mumuchat.ui.screens.DiscoverScreen
+import com.kk.mumuchat.ui.screens.OnboardingScreen
 import com.kk.mumuchat.ui.screens.ProfileScreen
+import com.kk.mumuchat.ui.screens.RegisterScreen
 import com.kk.mumuchat.viewmodel.ChatViewModel
 
 /** Tab切换动画时长 */
@@ -38,22 +41,68 @@ private const val DETAIL_ANIM_MS = 180
 
 @Composable
 fun AppNavigation(chatViewModel: ChatViewModel = viewModel()) {
+    val context = LocalContext.current
     val navController = rememberNavController()
     var currentRoute by remember { mutableStateOf(Routes.CHAT_LIST) }
     var previousTabIndex by remember { mutableIntStateOf(0) }
 
+    // 检查是否首次启动
+    val prefs = remember { context.getSharedPreferences("mumuchat_prefs", 0) }
+    val isFirstLaunch = remember { !prefs.getBoolean("onboarding_done", false) }
+    val startDest = if (isFirstLaunch) Routes.ONBOARDING else Routes.CHAT_LIST
+
     val showBottomBar = currentRoute in Routes.tabOrder
+
+    val needsStatusBarPadding = currentRoute !in listOf(Routes.ONBOARDING, Routes.REGISTER)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
+            .then(if (needsStatusBarPadding) Modifier.statusBarsPadding() else Modifier)
     ) {
         NavHost(
             navController = navController,
-            startDestination = Routes.CHAT_LIST,
+            startDestination = startDest,
             modifier = Modifier.fillMaxSize()
         ) {
+            // ==================== 引导页 ====================
+            composable(
+                route = Routes.ONBOARDING,
+                enterTransition = { fadeIn(tween(300)) },
+                exitTransition = { fadeOut(tween(300)) }
+            ) {
+                currentRoute = Routes.ONBOARDING
+                OnboardingScreen(
+                    onFinish = {
+                        navController.navigate(Routes.REGISTER) {
+                            popUpTo(Routes.ONBOARDING) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            // ==================== 注册页 ====================
+            composable(
+                route = Routes.REGISTER,
+                enterTransition = {
+                    slideIntoContainer(
+                        AnimatedContentTransitionScope.SlideDirection.Left,
+                        tween(300)
+                    )
+                },
+                exitTransition = { fadeOut(tween(200)) }
+            ) {
+                currentRoute = Routes.REGISTER
+                RegisterScreen(
+                    onRegisterSuccess = {
+                        prefs.edit().putBoolean("onboarding_done", true).apply()
+                        navController.navigate(Routes.CHAT_LIST) {
+                            popUpTo(Routes.REGISTER) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
             // ==================== Tab页面（左右滑动切换）====================
             Routes.tabOrder.forEach { route ->
                 composable(

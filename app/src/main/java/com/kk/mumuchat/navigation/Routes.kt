@@ -5,6 +5,12 @@ package com.kk.mumuchat.navigation
  * 集中管理所有页面的路由路径，避免硬编码字符串
  */
 object Routes {
+    /** 引导页 */
+    const val ONBOARDING = "onboarding"
+
+    /** 注册/登录页 */
+    const val REGISTER = "register"
+
     /** 聊天列表页（主页） */
     const val CHAT_LIST = "chat_list"
 
