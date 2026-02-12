@@ -1,6 +1,5 @@
 package com.kk.mumuchat.navigation
 
-import android.net.Uri
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -10,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +32,10 @@ import com.kk.mumuchat.ui.screens.DiscoverScreen
 import com.kk.mumuchat.ui.screens.OnboardingScreen
 import com.kk.mumuchat.ui.screens.ProfileScreen
 import com.kk.mumuchat.ui.screens.RegisterScreen
+import com.kk.mumuchat.ui.screens.CallScreen
 import com.kk.mumuchat.viewmodel.ChatViewModel
+import com.kk.mumuchat.call.CallType
+import com.kk.mumuchat.call.CallViewModel
 
 /** Tab切换动画时长 */
 private const val TAB_ANIM_MS = 200
@@ -217,7 +220,52 @@ fun AppNavigation(chatViewModel: ChatViewModel = viewModel()) {
                     },
                     onSendVideo = { uri, duration ->
                         chatViewModel.sendVideoMessage(chatId, uri, duration)
+                    },
+                    onStartCall = { callType, targetPhone ->
+                        val typeName = callType.name
+                        val myPhone = chatViewModel.currentUser.value.phone
+                        val targetName = chat?.name ?: ""
+                        navController.navigate(Routes.call(typeName, myPhone, targetPhone, targetName))
                     }
+                )
+            }
+
+            // ==================== 通话页面 ====================
+            composable(
+                route = Routes.CALL,
+                arguments = listOf(
+                    navArgument("callType") { type = NavType.StringType },
+                    navArgument("myPhone") { type = NavType.StringType },
+                    navArgument("targetPhone") { type = NavType.StringType },
+                    navArgument("targetName") { type = NavType.StringType }
+                ),
+                enterTransition = {
+                    slideIntoContainer(
+                        AnimatedContentTransitionScope.SlideDirection.Up,
+                        tween(DETAIL_ANIM_MS)
+                    )
+                },
+                popExitTransition = {
+                    slideOutOfContainer(
+                        AnimatedContentTransitionScope.SlideDirection.Down,
+                        tween(DETAIL_ANIM_MS)
+                    )
+                }
+            ) { backStackEntry ->
+                val callTypeName = backStackEntry.arguments?.getString("callType") ?: "VOICE"
+                val myPhone = backStackEntry.arguments?.getString("myPhone") ?: ""
+                val targetPhone = backStackEntry.arguments?.getString("targetPhone") ?: ""
+                val targetName = backStackEntry.arguments?.getString("targetName") ?: ""
+                val callType = try { CallType.valueOf(callTypeName) } catch (_: Exception) { CallType.VOICE }
+
+                val callViewModel: CallViewModel = viewModel()
+                LaunchedEffect(Unit) {
+                    callViewModel.startCall(callType, myPhone, targetPhone, targetName)
+                }
+
+                CallScreen(
+                    callViewModel = callViewModel,
+                    onBack = { navController.popBackStack() }
                 )
             }
         }

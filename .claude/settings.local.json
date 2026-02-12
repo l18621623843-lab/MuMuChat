@@ -5,7 +5,13 @@
       "mcp__ide__getDiagnostics",
       "Bash(.gradlew.bat compileDebugKotlin:*)",
       "Bash(cmd /c:*)",
-      "Bash(./gradlew assembleDebug:*)"
+      "Bash(./gradlew assembleDebug:*)",
+      "WebSearch",
+      "WebFetch(domain:mvnrepository.com)",
+      "WebFetch(domain:central.sonatype.com)",
+      "WebFetch(domain:ossrs.io)",
+      "WebFetch(domain:github.com)",
+      "Bash(curl:*)"
     ]
   }
 }

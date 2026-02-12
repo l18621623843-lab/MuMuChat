@@ -26,8 +26,15 @@ object Routes {
     /** 聊天详情页，需要传入 chatId 参数 */
     const val CHAT_DETAIL = "chat_detail/{chatId}"
 
+    /** 通话页面 */
+    const val CALL = "call/{callType}/{myPhone}/{targetPhone}/{targetName}"
+
     /** 生成聊天详情页的完整路由 */
     fun chatDetail(chatId: String) = "chat_detail/$chatId"
+
+    /** 生成通话页面的完整路由 */
+    fun call(callType: String, myPhone: String, targetPhone: String, targetName: String) =
+        "call/$callType/$myPhone/$targetPhone/$targetName"
 
     /** Tab页顺序索引，用于判断滑动方向 */
     val tabOrder = listOf(CHAT_LIST, CONTACTS, DISCOVER, PROFILE)

@@ -43,7 +43,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Redeem
-import androidx.compose.material.icons.filled.VideoCall
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -454,7 +454,7 @@ fun RecordingOverlay(seconds: Int, maxSeconds: Int, isCanceling: Boolean) {
 fun AttachmentPanel(
     onVoice: () -> Unit = {},
     onImage: () -> Unit = {},
-    onVideo: () -> Unit = {},
+    onCall: () -> Unit = {},
     onCamera: () -> Unit = {},
     onDismiss: () -> Unit = {}
 ) {
@@ -471,7 +471,7 @@ fun AttachmentPanel(
         ) {
             AttachmentGridItem(Icons.Default.Image, "相册", onImage)
             AttachmentGridItem(Icons.Default.CameraAlt, "拍摄", onCamera)
-            AttachmentGridItem(Icons.Default.VideoCall, "视频", onVideo)
+            AttachmentGridItem(Icons.Default.Phone, "语音", onCall)
             AttachmentGridItem(Icons.Default.LocationOn, "位置") {}
         }
         Spacer(Modifier.height(14.dp))

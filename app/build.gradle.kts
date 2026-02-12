@@ -79,6 +79,15 @@ dependencies {
     // Biometric（指纹认证）
     implementation(libs.biometric)
 
+    // OkHttp（网络请求）
+    implementation(libs.okhttp)
+
+    // Gson（JSON 解析）
+    implementation(libs.gson)
+
+    // WebRTC
+    implementation("io.github.webrtc-sdk:android:125.6422.07")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

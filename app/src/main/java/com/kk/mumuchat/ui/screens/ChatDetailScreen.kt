@@ -116,7 +116,8 @@ fun ChatDetailScreen(
     onSendMessage: (String) -> Unit,
     onSendVoice: (Int, Uri?) -> Unit = { _, _ -> },
     onSendImage: (Uri) -> Unit = {},
-    onSendVideo: (Uri, Int) -> Unit = { _, _ -> }
+    onSendVideo: (Uri, Int) -> Unit = { _, _ -> },
+    onStartCall: (com.kk.mumuchat.call.CallType, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
@@ -236,34 +237,10 @@ fun ChatDetailScreen(
         }
     }
 
-    val videoPickerLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        val duration = getVideoDuration(context, uri)
-        val msgId = "pending_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
-        val msg = Message(
-            id = msgId,
-            chatId = chat?.id ?: "",
-            senderId = "me",
-            senderName = chat?.name ?: "",
-            content = "",
-            timestamp = "刚刚",
-            isSentByMe = true,
-            messageType = MessageType.VIDEO,
-            mediaUri = uri,
-            duration = duration
-        )
-        pendingMediaMessages.add(msg)
-        forceScrollToBottom = true
-        simulateMediaUpload(
-            messageId = msgId,
-            uploadStateMap = uploadStateMap,
-            pendingMessages = pendingMediaMessages,
-            coroutineScope = coroutineScope,
-            sizeMb = Random.nextInt(20, 120)
-        ) { onSendVideoState.value.invoke(uri, duration) }
-    }
+    // Call dialog states
+    var showCallTypeDialog by remember { mutableStateOf(false) }
+    var showPhoneInputDialog by remember { mutableStateOf(false) }
+    var selectedCallType by remember { mutableStateOf(com.kk.mumuchat.call.CallType.VOICE) }
 
     val cameraLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicturePreview()
@@ -624,9 +601,9 @@ fun ChatDetailScreen(
                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
                     )
                 },
-                onVideo = {
+                onCall = {
                     showAttachPanel = false
-                    videoPickerLauncher.launch("video/*")
+                    showCallTypeDialog = true
                 },
                 onCamera = {
                     showAttachPanel = false
@@ -647,6 +624,28 @@ fun ChatDetailScreen(
                 seconds = recordSeconds,
                 maxSeconds = 60,
                 isCanceling = recordCanceled
+            )
+        }
+
+        // Call dialogs
+        if (showCallTypeDialog) {
+            CallTypeDialog(
+                onDismiss = { showCallTypeDialog = false },
+                onSelect = { type ->
+                    selectedCallType = type
+                    showCallTypeDialog = false
+                    showPhoneInputDialog = true
+                }
+            )
+        }
+        if (showPhoneInputDialog) {
+            PhoneInputDialog(
+                callType = selectedCallType,
+                onDismiss = { showPhoneInputDialog = false },
+                onConfirm = { phone ->
+                    showPhoneInputDialog = false
+                    onStartCall(selectedCallType, phone)
+                }
             )
         }
     }

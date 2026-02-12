@@ -109,7 +109,7 @@ docker run -d \
   -p 1985:1985 \
   -p 8081:8081 \
   -p 8000:8000/udp \
-  -v /opt/srs/conf/srs.conf:/usr/local/srs/conf/srs.conf \
+  -v /opt/srs/conf/srs.conf:/usr/local/srs/conf/docker.conf \
   ossrs/srs:5
 ```
 
