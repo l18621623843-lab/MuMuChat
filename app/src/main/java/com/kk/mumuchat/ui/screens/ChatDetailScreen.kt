@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -184,36 +185,60 @@ fun ChatDetailScreen(
         permissionTip = if (granted) null else "录音权限被拒绝"
     }
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetMultipleContents()
+    val contentResolver = context.contentResolver
+    val mediaPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia(9)
     ) { uris ->
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
-        val pick = uris.take(9)
-        if (uris.size > 9) {
-            permissionTip = "最多选择9张图片"
-        }
-        pick.forEach { uri ->
+        uris.forEach { uri ->
+            val mimeType = contentResolver.getType(uri) ?: ""
+            val isVideo = mimeType.startsWith("video/")
             val msgId = "pending_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
-            val msg = Message(
-                id = msgId,
-                chatId = chat?.id ?: "",
-                senderId = "me",
-                senderName = chat?.name ?: "",
-                content = "",
-                timestamp = "刚刚",
-                isSentByMe = true,
-                messageType = MessageType.IMAGE,
-                mediaUri = uri
-            )
-            pendingMediaMessages.add(msg)
-            forceScrollToBottom = true
-            simulateMediaUpload(
-                messageId = msgId,
-                uploadStateMap = uploadStateMap,
-                pendingMessages = pendingMediaMessages,
-                coroutineScope = coroutineScope,
-                sizeMb = Random.nextInt(1, 8)
-            ) { onSendImageState.value.invoke(uri) }
+            if (isVideo) {
+                val duration = Random.nextInt(10, 180)
+                val msg = Message(
+                    id = msgId,
+                    chatId = chat?.id ?: "",
+                    senderId = "me",
+                    senderName = chat?.name ?: "",
+                    content = "",
+                    timestamp = "刚刚",
+                    isSentByMe = true,
+                    messageType = MessageType.VIDEO,
+                    mediaUri = uri,
+                    duration = duration
+                )
+                pendingMediaMessages.add(msg)
+                forceScrollToBottom = true
+                simulateMediaUpload(
+                    messageId = msgId,
+                    uploadStateMap = uploadStateMap,
+                    pendingMessages = pendingMediaMessages,
+                    coroutineScope = coroutineScope,
+                    sizeMb = Random.nextInt(20, 120)
+                ) { onSendVideoState.value.invoke(uri, duration) }
+            } else {
+                val msg = Message(
+                    id = msgId,
+                    chatId = chat?.id ?: "",
+                    senderId = "me",
+                    senderName = chat?.name ?: "",
+                    content = "",
+                    timestamp = "刚刚",
+                    isSentByMe = true,
+                    messageType = MessageType.IMAGE,
+                    mediaUri = uri
+                )
+                pendingMediaMessages.add(msg)
+                forceScrollToBottom = true
+                simulateMediaUpload(
+                    messageId = msgId,
+                    uploadStateMap = uploadStateMap,
+                    pendingMessages = pendingMediaMessages,
+                    coroutineScope = coroutineScope,
+                    sizeMb = Random.nextInt(1, 8)
+                ) { onSendImageState.value.invoke(uri) }
+            }
         }
     }
 
@@ -540,7 +565,9 @@ fun ChatDetailScreen(
                 },
                 onImage = {
                     showAttachPanel = false
-                    imagePickerLauncher.launch("image/*")
+                    mediaPickerLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
+                    )
                 },
                 onVideo = {
                     showAttachPanel = false
