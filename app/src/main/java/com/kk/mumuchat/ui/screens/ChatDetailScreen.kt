@@ -56,17 +56,16 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Redeem
-import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.VideoCall
 import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -116,21 +115,7 @@ import kotlin.random.Random
 
 private enum class MessageSendStatus { Sending, Sent, Delivered, Read, Failed }
 
-private enum class UploadType { Image, Video, Voice, Camera }
-
 private enum class UploadStatus { Compressing, Uploading, Failed, Completed }
-
-private data class UploadTask(
-    val id: String,
-    val type: UploadType,
-    val label: String,
-    val sizeMb: Int,
-    val progress: Float,
-    val status: UploadStatus,
-    val durationSec: Int = 0,
-    val errorMessage: String = "",
-    val uri: Uri? = null
-)
 
 /**
  * 聊天详情页面
@@ -177,7 +162,8 @@ fun ChatDetailScreen(
     val messageFirstSeenMap = remember { mutableStateMapOf<String, Long>() }
     val hiddenMessageIds = remember { mutableStateMapOf<String, Boolean>() }
     val localSystemMessages = remember { mutableStateListOf<Message>() }
-    val uploadTasks = remember { mutableStateListOf<UploadTask>() }
+    val pendingMediaMessages = remember { mutableStateListOf<Message>() }
+    val uploadStateMap = remember { mutableStateMapOf<String, Pair<Float, UploadStatus>>() }
 
     var audioPermissionGranted by remember {
         mutableStateOf(
@@ -206,16 +192,27 @@ fun ChatDetailScreen(
         if (uris.size > 9) {
             permissionTip = "最多选择9张图片"
         }
-        pick.forEachIndexed { index, uri ->
-            val sizeMb = Random.nextInt(1, 8)
-            val label = "图片 ${index + 1} · 1080p · 80%"
-            enqueueUpload(
-                uploadTasks = uploadTasks,
+        pick.forEach { uri ->
+            val msgId = "pending_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
+            val msg = Message(
+                id = msgId,
+                chatId = chat?.id ?: "",
+                senderId = "me",
+                senderName = chat?.name ?: "",
+                content = "",
+                timestamp = "刚刚",
+                isSentByMe = true,
+                messageType = MessageType.IMAGE,
+                mediaUri = uri
+            )
+            pendingMediaMessages.add(msg)
+            forceScrollToBottom = true
+            simulateMediaUpload(
+                messageId = msgId,
+                uploadStateMap = uploadStateMap,
+                pendingMessages = pendingMediaMessages,
                 coroutineScope = coroutineScope,
-                type = UploadType.Image,
-                label = label,
-                sizeMb = sizeMb,
-                uri = uri
+                sizeMb = Random.nextInt(1, 8)
             ) { onSendImageState.value.invoke(uri) }
         }
     }
@@ -224,17 +221,28 @@ fun ChatDetailScreen(
         ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        val sizeMb = Random.nextInt(20, 120)
         val duration = Random.nextInt(10, 180)
-        val label = "视频 · 720p · 1Mbps"
-        enqueueUpload(
-            uploadTasks = uploadTasks,
+        val msgId = "pending_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
+        val msg = Message(
+            id = msgId,
+            chatId = chat?.id ?: "",
+            senderId = "me",
+            senderName = chat?.name ?: "",
+            content = "",
+            timestamp = "刚刚",
+            isSentByMe = true,
+            messageType = MessageType.VIDEO,
+            mediaUri = uri,
+            duration = duration
+        )
+        pendingMediaMessages.add(msg)
+        forceScrollToBottom = true
+        simulateMediaUpload(
+            messageId = msgId,
+            uploadStateMap = uploadStateMap,
+            pendingMessages = pendingMediaMessages,
             coroutineScope = coroutineScope,
-            type = UploadType.Video,
-            label = label,
-            sizeMb = sizeMb,
-            uri = uri,
-            durationSec = duration
+            sizeMb = Random.nextInt(20, 120)
         ) { onSendVideoState.value.invoke(uri, duration) }
     }
 
@@ -242,19 +250,30 @@ fun ChatDetailScreen(
         ActivityResultContracts.TakePicturePreview()
     ) { bitmap ->
         if (bitmap == null) return@rememberLauncherForActivityResult
-        val label = "拍摄照片 · 1080p · 80%"
-        enqueueUpload(
-            uploadTasks = uploadTasks,
+        val msgId = "pending_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
+        val msg = Message(
+            id = msgId,
+            chatId = chat?.id ?: "",
+            senderId = "me",
+            senderName = chat?.name ?: "",
+            content = "",
+            timestamp = "刚刚",
+            isSentByMe = true,
+            messageType = MessageType.IMAGE
+        )
+        pendingMediaMessages.add(msg)
+        forceScrollToBottom = true
+        simulateMediaUpload(
+            messageId = msgId,
+            uploadStateMap = uploadStateMap,
+            pendingMessages = pendingMediaMessages,
             coroutineScope = coroutineScope,
-            type = UploadType.Camera,
-            label = label,
-            sizeMb = Random.nextInt(2, 10),
-            uri = null
+            sizeMb = Random.nextInt(2, 10)
         ) { }
     }
 
     val mergedMessages by remember {
-        derivedStateOf { (messages + localSystemMessages).filter { !hiddenMessageIds.containsKey(it.id) } }
+        derivedStateOf { (messages + localSystemMessages + pendingMediaMessages).filter { !hiddenMessageIds.containsKey(it.id) } }
     }
     val pageSize = 20
     var pageCount by remember { mutableIntStateOf(1) }
@@ -380,11 +399,14 @@ fun ChatDetailScreen(
                     }
                 }
                 items(visibleMessages) { message ->
+                    val uploadState = uploadStateMap[message.id]
                     MessageItem(
                         message = message,
                         isGroup = chat?.isGroup == true,
                         isPlaying = playingVoiceId == message.id,
                         status = messageStatusMap[message.id],
+                        uploadProgress = uploadState?.first,
+                        uploadStatus = uploadState?.second,
                         onVoiceClick = {
                             playingVoiceId = if (playingVoiceId == message.id) null else message.id
                         },
@@ -436,26 +458,6 @@ fun ChatDetailScreen(
                     }
                 )
             }
-        }
-
-        if (uploadTasks.isNotEmpty()) {
-            UploadQueuePanel(
-                tasks = uploadTasks,
-                onRetry = { taskId ->
-                    val task = uploadTasks.firstOrNull { it.id == taskId } ?: return@UploadQueuePanel
-                    restartUpload(uploadTasks, coroutineScope, task) {
-                        when (task.type) {
-                            UploadType.Video -> task.uri?.let { uri ->
-                                onSendVideoState.value.invoke(uri, task.durationSec.coerceAtLeast(1))
-                            }
-                            UploadType.Voice -> onSendVoiceState.value.invoke(task.durationSec.coerceAtLeast(1))
-                            UploadType.Image, UploadType.Camera -> task.uri?.let { uri ->
-                                onSendImageState.value.invoke(uri)
-                            }
-                        }
-                    }
-                }
-            )
         }
 
         if (permissionTip != null) {
@@ -600,6 +602,8 @@ private fun MessageItem(
     isGroup: Boolean = false,
     isPlaying: Boolean = false,
     status: MessageSendStatus? = null,
+    uploadProgress: Float? = null,
+    uploadStatus: UploadStatus? = null,
     canRecall: Boolean = false,
     onVoiceClick: () -> Unit = {},
     onImageClick: () -> Unit = {},
@@ -662,11 +666,15 @@ private fun MessageItem(
                     )
                     MessageType.IMAGE -> ImageBubble(
                         message = message,
+                        uploadProgress = uploadProgress,
+                        uploadStatus = uploadStatus,
                         onClick = onImageClick,
                         onLongPress = { menuExpanded = true }
                     )
                     MessageType.VIDEO -> VideoBubble(
                         message = message,
+                        uploadProgress = uploadProgress,
+                        uploadStatus = uploadStatus,
                         onClick = onVideoClick,
                         onLongPress = { menuExpanded = true }
                     )
@@ -915,7 +923,13 @@ fun VoiceBubble(message: Message, isPlaying: Boolean, onClick: () -> Unit, onLon
 
 // ==================== 优化后的图片气泡（使用真实图片）====================
 @Composable
-fun ImageBubble(message: Message, onClick: () -> Unit, onLongPress: () -> Unit) {
+private fun ImageBubble(
+    message: Message,
+    uploadProgress: Float? = null,
+    uploadStatus: UploadStatus? = null,
+    onClick: () -> Unit,
+    onLongPress: () -> Unit
+) {
     val shape = RoundedCornerShape(
         topStart = if (message.isSentByMe) 12.dp else 4.dp,
         topEnd = if (message.isSentByMe) 4.dp else 12.dp,
@@ -945,44 +959,54 @@ fun ImageBubble(message: Message, onClick: () -> Unit, onLongPress: () -> Unit) 
                 onLongClick = onLongPress
             )
     ) {
-        if (message.mediaUri != null) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(message.mediaUri)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = "图片",
-                modifier = Modifier
-                    .size(width = 200.dp, height = 140.dp)
-                    .clip(shape),
-                contentScale = ContentScale.Crop
-            )
-        } else {
-            val gradientColors = if (message.isSentByMe) {
-                listOf(
-                    Color(0xFF29B6F6),
-                    Color(0xFF4FC3F7),
-                    Color(0xFF81D4FA)
+        Box {
+            if (message.mediaUri != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(message.mediaUri)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "图片",
+                    modifier = Modifier
+                        .size(width = 200.dp, height = 140.dp)
+                        .clip(shape),
+                    contentScale = ContentScale.Crop
                 )
             } else {
-                listOf(
-                    Color(0xFFE8F5E9),
-                    Color(0xFFC8E6C9),
-                    Color(0xFFAED581)
-                )
+                val gradientColors = if (message.isSentByMe) {
+                    listOf(
+                        Color(0xFF29B6F6),
+                        Color(0xFF4FC3F7),
+                        Color(0xFF81D4FA)
+                    )
+                } else {
+                    listOf(
+                        Color(0xFFE8F5E9),
+                        Color(0xFFC8E6C9),
+                        Color(0xFFAED581)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(width = 200.dp, height = 140.dp)
+                        .clip(shape)
+                        .background(Brush.linearGradient(gradientColors)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Image,
+                        contentDescription = "图片",
+                        tint = Color.White.copy(alpha = 0.75f),
+                        modifier = Modifier.size(44.dp)
+                    )
+                }
             }
-            Box(
-                modifier = Modifier
-                    .size(width = 200.dp, height = 140.dp)
-                    .clip(shape)
-                    .background(Brush.linearGradient(gradientColors)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.Image,
-                    contentDescription = "图片",
-                    tint = Color.White.copy(alpha = 0.75f),
-                    modifier = Modifier.size(44.dp)
+
+            if (uploadProgress != null && uploadStatus != null && uploadStatus != UploadStatus.Completed) {
+                UploadProgressOverlay(
+                    progress = uploadProgress,
+                    status = uploadStatus,
+                    modifier = Modifier.size(width = 200.dp, height = 140.dp)
                 )
             }
         }
@@ -1003,7 +1027,13 @@ fun ImageBubble(message: Message, onClick: () -> Unit, onLongPress: () -> Unit) 
 
 // ==================== 优化后的视频气泡（使用真实视频缩略图）====================
 @Composable
-fun VideoBubble(message: Message, onClick: () -> Unit, onLongPress: () -> Unit) {
+private fun VideoBubble(
+    message: Message,
+    uploadProgress: Float? = null,
+    uploadStatus: UploadStatus? = null,
+    onClick: () -> Unit,
+    onLongPress: () -> Unit
+) {
     val shape = RoundedCornerShape(
         topStart = if (message.isSentByMe) 12.dp else 4.dp,
         topEnd = if (message.isSentByMe) 4.dp else 12.dp,
@@ -1096,6 +1126,14 @@ fun VideoBubble(message: Message, onClick: () -> Unit, onLongPress: () -> Unit) 
                     color = Color.White,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
+                )
+            }
+
+            if (uploadProgress != null && uploadStatus != null && uploadStatus != UploadStatus.Completed) {
+                UploadProgressOverlay(
+                    progress = uploadProgress,
+                    status = uploadStatus,
+                    modifier = Modifier.fillMaxSize()
                 )
             }
         }
@@ -1635,74 +1673,58 @@ fun PermissionTip(message: String) {
     }
 }
 
+// ==================== 上传进度遮罩（微信风格）====================
 @Composable
-private fun UploadQueuePanel(tasks: List<UploadTask>, onRetry: (String) -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF1A3050).copy(alpha = 0.9f))
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-    ) {
-        tasks.forEach { task ->
-            UploadTaskRow(task = task, onRetry = onRetry)
-            Spacer(Modifier.height(6.dp))
-        }
-    }
-}
-
-@Composable
-private fun UploadTaskRow(task: UploadTask, onRetry: (String) -> Unit) {
-    val icon = when (task.type) {
-        UploadType.Image -> Icons.Default.Image
-        UploadType.Video -> Icons.Default.Videocam
-        UploadType.Voice -> Icons.Default.Mic
-        UploadType.Camera -> Icons.Default.CameraAlt
-    }
-    val statusText = when (task.status) {
+private fun UploadProgressOverlay(
+    progress: Float,
+    status: UploadStatus,
+    modifier: Modifier = Modifier
+) {
+    val statusText = when (status) {
         UploadStatus.Compressing -> "压缩中"
         UploadStatus.Uploading -> "上传中"
-        UploadStatus.Failed -> "失败"
-        UploadStatus.Completed -> "完成"
+        UploadStatus.Failed -> "发送失败"
+        UploadStatus.Completed -> ""
     }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
+    Box(
+        modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.White.copy(alpha = 0.08f))
-            .padding(horizontal = 10.dp, vertical = 8.dp)
+            .background(Color.Black.copy(alpha = 0.55f)),
+        contentAlignment = Alignment.Center
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, "上传", tint = SkyBlue, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(task.label, color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            if (status == UploadStatus.Failed) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "失败",
+                    tint = IconBgRed,
+                    modifier = Modifier.size(36.dp)
+                )
+            } else {
+                Box(contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.size(40.dp),
+                        color = Color.White,
+                        trackColor = Color.White.copy(alpha = 0.25f),
+                        strokeWidth = 3.dp
+                    )
+                    Text(
+                        "${(progress * 100).toInt()}%",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            if (statusText.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    "${task.sizeMb}MB · $statusText",
-                    color = Color.White.copy(alpha = 0.6f),
+                    statusText,
+                    color = Color.White.copy(alpha = 0.85f),
                     fontSize = 10.sp
                 )
             }
-            if (task.status == UploadStatus.Failed) {
-                TextButton(onClick = { onRetry(task.id) }) {
-                    Text("重试", color = SkyBlue, fontSize = 12.sp)
-                }
-            }
-        }
-        if (task.status == UploadStatus.Uploading || task.status == UploadStatus.Compressing) {
-            Spacer(Modifier.height(6.dp))
-            LinearProgressIndicator(
-                progress = { task.progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .clip(RoundedCornerShape(2.dp)),
-                color = SkyBlue,
-                trackColor = Color.White.copy(alpha = 0.15f)
-            )
-        }
-        if (task.status == UploadStatus.Failed && task.errorMessage.isNotEmpty()) {
-            Spacer(Modifier.height(4.dp))
-            Text(task.errorMessage, color = IconBgRed, fontSize = 10.sp)
         }
     }
 }
@@ -1747,82 +1769,35 @@ fun NewMessageIndicator(count: Int, onClick: () -> Unit) {
     }
 }
 
-private fun enqueueUpload(
-    uploadTasks: MutableList<UploadTask>,
+private fun simulateMediaUpload(
+    messageId: String,
+    uploadStateMap: MutableMap<String, Pair<Float, UploadStatus>>,
+    pendingMessages: MutableList<Message>,
     coroutineScope: CoroutineScope,
-    type: UploadType,
-    label: String,
     sizeMb: Int,
-    durationSec: Int = 0,
-    uri: Uri? = null,
     onComplete: () -> Unit
 ) {
-    val task = UploadTask(
-        id = "up_${System.currentTimeMillis()}_${Random.nextInt(1000)}",
-        type = type,
-        label = label,
-        sizeMb = sizeMb,
-        progress = 0f,
-        status = UploadStatus.Compressing,
-        durationSec = durationSec,
-        uri = uri
-    )
-    uploadTasks.add(task)
-    restartUpload(uploadTasks, coroutineScope, task, onComplete)
-}
-
-private fun restartUpload(
-    uploadTasks: MutableList<UploadTask>,
-    coroutineScope: CoroutineScope,
-    task: UploadTask,
-    onComplete: () -> Unit
-) {
-    val taskId = task.id
-    updateTask(uploadTasks, taskId) {
-        it.copy(progress = 0f, status = UploadStatus.Compressing, errorMessage = "")
-    }
+    uploadStateMap[messageId] = Pair(0f, UploadStatus.Compressing)
     coroutineScope.launch {
         val compressSteps = 4
         for (step in 1..compressSteps) {
             delay(160)
-            updateTask(uploadTasks, taskId) {
-                it.copy(progress = (step / compressSteps.toFloat()) * 0.3f)
-            }
+            uploadStateMap[messageId] = Pair((step / compressSteps.toFloat()) * 0.3f, UploadStatus.Compressing)
         }
-        if (task.type == UploadType.Video && task.sizeMb > 100) {
-            updateTask(uploadTasks, taskId) {
-                it.copy(status = UploadStatus.Failed, errorMessage = "视频超过100MB")
-            }
-            return@launch
-        }
-        updateTask(uploadTasks, taskId) { it.copy(status = UploadStatus.Uploading) }
+        uploadStateMap[messageId] = Pair(0.3f, UploadStatus.Uploading)
         val uploadSteps = 7
         for (step in 1..uploadSteps) {
             delay(220)
-            updateTask(uploadTasks, taskId) {
-                it.copy(progress = 0.3f + (step / uploadSteps.toFloat()) * 0.7f)
-            }
+            uploadStateMap[messageId] = Pair(0.3f + (step / uploadSteps.toFloat()) * 0.7f, UploadStatus.Uploading)
         }
-        val shouldFail = task.sizeMb > 80 && Random.nextFloat() < 0.25f
+        val shouldFail = sizeMb > 80 && Random.nextFloat() < 0.25f
         if (shouldFail) {
-            updateTask(uploadTasks, taskId) {
-                it.copy(status = UploadStatus.Failed, errorMessage = "网络不稳定,请重试")
-            }
+            uploadStateMap[messageId] = Pair(0f, UploadStatus.Failed)
         } else {
-            updateTask(uploadTasks, taskId) { it.copy(status = UploadStatus.Completed, progress = 1f) }
+            uploadStateMap.remove(messageId)
+            pendingMessages.removeAll { it.id == messageId }
             onComplete()
         }
-    }
-}
-
-private fun updateTask(
-    uploadTasks: MutableList<UploadTask>,
-    taskId: String,
-    updater: (UploadTask) -> UploadTask
-) {
-    val index = uploadTasks.indexOfFirst { it.id == taskId }
-    if (index >= 0) {
-        uploadTasks[index] = updater(uploadTasks[index])
     }
 }
 
