@@ -337,7 +337,7 @@ class ChatViewModel : ViewModel() {
      * 获取指定会话的消息列表
      */
     fun getMessages(chatId: String): List<Message> {
-        return messagesMap[chatId] ?: emptyList()
+        return messagesMap.getOrPut(chatId) { mutableStateListOf() }
     }
 
     /**

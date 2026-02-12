@@ -269,6 +269,10 @@ fun ChatDetailScreen(
         ActivityResultContracts.TakePicturePreview()
     ) { bitmap ->
         if (bitmap == null) return@rememberLauncherForActivityResult
+        // 保存 bitmap 到缓存文件，获取 URI
+        val file = File(context.cacheDir, "photo_${System.currentTimeMillis()}.jpg")
+        file.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, it) }
+        val photoUri = Uri.fromFile(file)
         val msgId = "pending_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
         val msg = Message(
             id = msgId,
@@ -278,7 +282,9 @@ fun ChatDetailScreen(
             content = "",
             timestamp = "刚刚",
             isSentByMe = true,
-            messageType = MessageType.IMAGE
+            messageType = MessageType.IMAGE,
+            mediaUri = photoUri,
+            mediaDescription = "拍摄照片"
         )
         pendingMediaMessages.add(msg)
         forceScrollToBottom = true
@@ -288,7 +294,7 @@ fun ChatDetailScreen(
             pendingMessages = pendingMediaMessages,
             coroutineScope = coroutineScope,
             sizeMb = Random.nextInt(2, 10)
-        ) { }
+        ) { onSendImageState.value.invoke(photoUri) }
     }
 
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
@@ -895,7 +901,11 @@ private fun ImageBubble(
             )
             .combinedClickable(onClick = onClick, onLongClick = onLongPress)
     ) {
-        Box {
+        Box(
+            modifier = Modifier
+                .size(width = 200.dp, height = 140.dp)
+                .clip(shape)
+        ) {
             if (message.mediaUri != null) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
@@ -903,9 +913,7 @@ private fun ImageBubble(
                         .crossfade(true)
                         .build(),
                     contentDescription = "图片",
-                    modifier = Modifier
-                        .size(width = 200.dp, height = 140.dp)
-                        .clip(shape),
+                    modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
             } else {
@@ -928,15 +936,30 @@ private fun ImageBubble(
             if (uploadProgress != null && uploadStatus != null && uploadStatus != UploadStatus.Completed) {
                 UploadProgressOverlay(progress = uploadProgress, status = uploadStatus, modifier = Modifier.size(width = 200.dp, height = 140.dp))
             }
-        }
 
-        if (message.mediaDescription.isNotEmpty()) {
-            Text(
-                message.mediaDescription,
-                color = if (message.isSentByMe) Color.White.copy(alpha = 0.8f) else Color(0xFF424242),
-                fontSize = 11.sp,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-            )
+            // 描述文字在图片内部顶部，带半透明阴影背景
+            if (message.mediaDescription.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color.Black.copy(alpha = 0.5f), Color.Transparent)
+                            )
+                        )
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        message.mediaDescription,
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
     }
 }
@@ -1024,6 +1047,30 @@ private fun VideoBubble(
 
             if (uploadProgress != null && uploadStatus != null && uploadStatus != UploadStatus.Completed) {
                 UploadProgressOverlay(progress = uploadProgress, status = uploadStatus, modifier = Modifier.size(width = 210.dp, height = 150.dp))
+            }
+
+            // 描述文字在视频内部顶部，带半透明阴影背景
+            if (message.mediaDescription.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color.Black.copy(alpha = 0.5f), Color.Transparent)
+                            )
+                        )
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        message.mediaDescription,
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
