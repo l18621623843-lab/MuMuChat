@@ -1,6 +1,7 @@
 package com.kk.mumuchat.ui.screens
 
 import android.net.Uri
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -299,16 +300,37 @@ fun VideoPlayerDialog(uri: Uri, onDismiss: () -> Unit) {
     }
 }
 
-// ==================== 录音提示框（微信风格：快速弹出 + 麦克风图标 + 波纹）====================
+// ==================== 录音提示框（微信风格：动画 + 麦克风 + 波纹 + 取消提示）====================
 @Composable
 fun RecordingOverlay(seconds: Int, maxSeconds: Int, isCanceling: Boolean) {
     val transition = rememberInfiniteTransition(label = "recording")
     val pulse by transition.animateFloat(
-        initialValue = 0.6f,
+        initialValue = 0.5f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(600), RepeatMode.Reverse),
+        animationSpec = infiniteRepeatable(tween(500), RepeatMode.Reverse),
         label = "pulse"
     )
+    // 声波条动画
+    val wave1 by transition.animateFloat(
+        initialValue = 0.3f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(400, easing = LinearEasing), RepeatMode.Reverse),
+        label = "wave1"
+    )
+    val wave2 by transition.animateFloat(
+        initialValue = 0.5f, targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(tween(350, easing = LinearEasing), RepeatMode.Reverse),
+        label = "wave2"
+    )
+    val wave3 by transition.animateFloat(
+        initialValue = 0.2f, targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(tween(500, easing = LinearEasing), RepeatMode.Reverse),
+        label = "wave3"
+    )
+    // 入场缩放动画
+    val scaleAnim = remember { Animatable(0.6f) }
+    LaunchedEffect(Unit) {
+        scaleAnim.animateTo(1f, animationSpec = tween(200))
+    }
 
     Box(
         modifier = Modifier
@@ -316,39 +338,85 @@ fun RecordingOverlay(seconds: Int, maxSeconds: Int, isCanceling: Boolean) {
             .background(Color.Black.copy(alpha = 0.4f)),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // 主圆形区域
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.graphicsLayer(
+                scaleX = scaleAnim.value,
+                scaleY = scaleAnim.value
+            )
+        ) {
+            // 主面板
             Box(
                 modifier = Modifier
-                    .size(140.dp)
+                    .size(150.dp)
                     .clip(RoundedCornerShape(20.dp))
                     .background(
-                        if (isCanceling) Color(0xCC960A0A)
-                        else Color(0xCC2B2B2B)
+                        if (isCanceling) Color(0xDD960A0A)
+                        else Color(0xDD2B2B2B)
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    // 麦克风图标 + 脉冲
-                    Box(contentAlignment = Alignment.Center) {
-                        // 脉冲圆环
-                        if (!isCanceling) {
-                            Box(
-                                modifier = Modifier
-                                    .size((60 * pulse).dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF07C160).copy(alpha = 0.2f * pulse))
+                    if (isCanceling) {
+                        // 取消状态：垃圾桶/关闭图标
+                        Box(
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "取消",
+                                tint = Color.White,
+                                modifier = Modifier.size(32.dp)
                             )
                         }
-                        Icon(
-                            if (isCanceling) Icons.Default.Close else Icons.Default.Mic,
-                            contentDescription = "录音",
-                            tint = if (isCanceling) Color.White else Color(0xFF07C160),
-                            modifier = Modifier.size(40.dp)
-                        )
+                    } else {
+                        // 录音状态：麦克风 + 脉冲圆环 + 声波条
+                        Box(contentAlignment = Alignment.Center) {
+                            // 外层脉冲
+                            Box(
+                                modifier = Modifier
+                                    .size((56 * pulse).dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF07C160).copy(alpha = 0.15f * pulse))
+                            )
+                            // 内层脉冲
+                            Box(
+                                modifier = Modifier
+                                    .size((44 * pulse).dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF07C160).copy(alpha = 0.25f * pulse))
+                            )
+                            Icon(
+                                Icons.Default.Mic,
+                                contentDescription = "录音中",
+                                tint = Color(0xFF07C160),
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        // 声波条
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val waves = listOf(wave1, wave2, wave3, wave1 * 0.7f, wave2 * 1.2f, wave3 * 0.8f, wave1 * 0.5f)
+                            waves.forEach { w ->
+                                Box(
+                                    modifier = Modifier
+                                        .width(4.dp)
+                                        .height((w * 20).dp)
+                                        .clip(RoundedCornerShape(2.dp))
+                                        .background(Color(0xFF07C160).copy(alpha = 0.8f))
+                                )
+                            }
+                        }
                     }
                     Spacer(Modifier.height(8.dp))
-                    // 时长显示
+                    // 时长
                     val min = seconds / 60
                     val sec = seconds % 60
                     Text(
@@ -359,13 +427,24 @@ fun RecordingOverlay(seconds: Int, maxSeconds: Int, isCanceling: Boolean) {
                     )
                 }
             }
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = if (isCanceling) "松开 取消" else "上滑 取消",
-                color = if (isCanceling) Color(0xFFFF5252) else Color.White.copy(alpha = 0.7f),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
-            )
+            Spacer(Modifier.height(20.dp))
+            // 底部提示
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(
+                        if (isCanceling) Color(0xFFFF5252).copy(alpha = 0.2f)
+                        else Color.Transparent
+                    )
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = if (isCanceling) "松开 取消发送" else "上滑 取消发送",
+                    color = if (isCanceling) Color(0xFFFF5252) else Color.White.copy(alpha = 0.6f),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
     }
 }
@@ -560,7 +639,7 @@ fun ChatInputBar(
     }
 }
 
-// ==================== 按住说话按钮（优化响应速度）====================
+// ==================== 按住说话按钮（动画反馈 + 上滑/划出取消）====================
 @Composable
 fun HoldToTalkButton(
     audioPermissionGranted: Boolean,
@@ -572,12 +651,34 @@ fun HoldToTalkButton(
 ) {
     val colors = LocalMuMuColors.current
     var isPressed by remember { mutableStateOf(false) }
+    var isCanceling by remember { mutableStateOf(false) }
+
+    // 按压缩放动画
+    val scale = remember { Animatable(1f) }
+    LaunchedEffect(isPressed) {
+        if (isPressed) {
+            scale.animateTo(0.93f, animationSpec = tween(100))
+        } else {
+            scale.animateTo(1f, animationSpec = tween(150))
+        }
+    }
 
     Box(
         modifier = modifier
+            .graphicsLayer(scaleX = scale.value, scaleY = scale.value)
             .clip(RoundedCornerShape(6.dp))
-            .background(if (isPressed) colors.inputFieldBorder else colors.inputFieldBg)
-            .border(1.dp, colors.inputFieldBorder, RoundedCornerShape(6.dp))
+            .background(
+                when {
+                    isCanceling -> Color(0x33FF5252)
+                    isPressed -> colors.inputFieldBorder
+                    else -> colors.inputFieldBg
+                }
+            )
+            .border(
+                1.dp,
+                if (isCanceling) Color(0xFFFF5252).copy(alpha = 0.5f) else colors.inputFieldBorder,
+                RoundedCornerShape(6.dp)
+            )
             .pointerInput(audioPermissionGranted) {
                 awaitEachGesture {
                     val down = awaitFirstDown()
@@ -586,10 +687,13 @@ fun HoldToTalkButton(
                         return@awaitEachGesture
                     }
                     isPressed = true
-                    // 立即触发录音（减少延迟，从200ms降到100ms）
+                    isCanceling = false
                     val startTime = down.uptimeMillis
                     var longPressTriggered = false
                     var canceled = false
+                    val buttonWidth = size.width.toFloat()
+                    val buttonHeight = size.height.toFloat()
+
                     while (true) {
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
@@ -598,16 +702,23 @@ fun HoldToTalkButton(
                             onStart()
                         }
                         if (!change.pressed) break
-                        val dragY = change.position.y - down.position.y
                         if (longPressTriggered) {
-                            val canceling = dragY < -80f
-                            if (canceling != canceled) {
-                                canceled = canceling
+                            val dragY = change.position.y - down.position.y
+                            val posX = change.position.x
+                            val posY = change.position.y
+                            // 上滑超过80px 或 手指滑出按钮区域
+                            val outOfBounds = dragY < -80f ||
+                                    posX < -40f || posX > buttonWidth + 40f ||
+                                    posY < -100f || posY > buttonHeight + 60f
+                            if (outOfBounds != canceled) {
+                                canceled = outOfBounds
+                                isCanceling = canceled
                                 onCancelChange(canceled)
                             }
                         }
                     }
                     isPressed = false
+                    isCanceling = false
                     if (longPressTriggered) {
                         onFinish(canceled)
                     }
@@ -616,8 +727,12 @@ fun HoldToTalkButton(
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = if (isPressed) "松开 结束" else "按住 说话",
-            color = colors.textPrimary,
+            text = when {
+                isCanceling -> "松开 取消"
+                isPressed -> "松开 结束"
+                else -> "按住 说话"
+            },
+            color = if (isCanceling) Color(0xFFFF5252) else colors.textPrimary,
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium
         )

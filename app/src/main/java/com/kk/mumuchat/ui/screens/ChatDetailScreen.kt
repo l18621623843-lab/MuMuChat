@@ -427,23 +427,16 @@ fun ChatDetailScreen(
         VideoPlayerDialog(uri = uri, onDismiss = { playVideoUri = null })
     }
 
-    if (isRecording) {
-        RecordingOverlay(
-            seconds = recordSeconds,
-            maxSeconds = 60,
-            isCanceling = recordCanceled
-        )
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(bgBrush)
-            .navigationBarsPadding()
-            .imePadding()
-            .animateContentSize()
-    ) {
-        ChatTopBar(chat = chat, onBackClick = onBackClick)
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(bgBrush)
+                .navigationBarsPadding()
+                .imePadding()
+                .animateContentSize()
+        ) {
+            ChatTopBar(chat = chat, onBackClick = onBackClick)
 
         Box(modifier = Modifier.weight(1f)) {
             LazyColumn(
@@ -631,6 +624,16 @@ fun ChatDetailScreen(
                     }
                 },
                 onDismiss = { showAttachPanel = false }
+            )
+        }
+    }
+
+        // 录音浮层 - 覆盖在所有内容之上
+        if (isRecording) {
+            RecordingOverlay(
+                seconds = recordSeconds,
+                maxSeconds = 60,
+                isCanceling = recordCanceled
             )
         }
     }
