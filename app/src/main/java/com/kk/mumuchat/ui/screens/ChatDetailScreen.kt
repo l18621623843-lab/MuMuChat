@@ -172,6 +172,12 @@ fun ChatDetailScreen(
                     PackageManager.PERMISSION_GRANTED
         )
     }
+    var cameraPermissionGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+                    PackageManager.PERMISSION_GRANTED
+        )
+    }
 
     val onSendMessageState = rememberUpdatedState(onSendMessage)
     val onSendVoiceState = rememberUpdatedState(onSendVoice)
@@ -184,7 +190,6 @@ fun ChatDetailScreen(
         audioPermissionGranted = granted
         permissionTip = if (granted) null else "录音权限被拒绝"
     }
-
     val contentResolver = context.contentResolver
     val mediaPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia(9)
@@ -295,6 +300,16 @@ fun ChatDetailScreen(
             coroutineScope = coroutineScope,
             sizeMb = Random.nextInt(2, 10)
         ) { }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        cameraPermissionGranted = granted
+        permissionTip = if (granted) null else "相机权限被拒绝"
+        if (granted) {
+            cameraLauncher.launch(null)
+        }
     }
 
     val mergedMessages by remember {
@@ -575,7 +590,11 @@ fun ChatDetailScreen(
                 },
                 onCamera = {
                     showAttachPanel = false
-                    cameraLauncher.launch(null)
+                    if (cameraPermissionGranted) {
+                        cameraLauncher.launch(null)
+                    } else {
+                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    }
                 },
                 onDismiss = { showAttachPanel = false }
             )
