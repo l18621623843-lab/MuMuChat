@@ -92,7 +92,7 @@ fun ProfileScreen(user: User) {
             item {
                 Spacer(Modifier.height(16.dp))
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     ProfileActionButton(Icons.Default.CameraAlt, "设置照片") {}
@@ -104,7 +104,7 @@ fun ProfileScreen(user: User) {
                 Spacer(Modifier.height(16.dp))
                 GlassCard(modifier = Modifier.padding(horizontal = 24.dp)) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(Icons.Default.Call, null, tint = colors.textSecondary, modifier = Modifier.size(22.dp))
@@ -168,14 +168,14 @@ fun ProfileScreen(user: User) {
 @Composable
 fun ProfileActionButton(icon: ImageVector, label: String, onClick: () -> Unit) {
     val colors = LocalMuMuColors.current
-    GlassCard(modifier = Modifier.size(width = 100.dp, height = 80.dp), cornerRadius = 12.dp) {
+    GlassCard(modifier = Modifier.size(width = 100.dp, height = 60.dp), cornerRadius = 12.dp) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(8.dp),
+            modifier = Modifier.fillMaxSize().padding(7.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Icon(icon, label, tint = SkyBlue, modifier = Modifier.size(24.dp))
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(2.dp))
             Text(label, fontSize = 12.sp, color = colors.textPrimary, textAlign = TextAlign.Center)
         }
     }
