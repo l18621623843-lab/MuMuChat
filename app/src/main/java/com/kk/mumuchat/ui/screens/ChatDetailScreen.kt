@@ -327,6 +327,13 @@ fun ChatDetailScreen(
         }
     }
 
+    // 首次进入时滚动到底部
+    LaunchedEffect(Unit) {
+        if (visibleMessages.isNotEmpty()) {
+            listState.scrollToItem(visibleMessages.lastIndex.coerceAtLeast(0))
+        }
+    }
+
     LaunchedEffect(mergedMessages.size) {
         if (mergedMessages.isEmpty()) return@LaunchedEffect
         if (forceScrollToBottom) {

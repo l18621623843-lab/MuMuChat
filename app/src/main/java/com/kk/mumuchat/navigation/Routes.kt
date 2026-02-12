@@ -22,4 +22,9 @@ object Routes {
 
     /** 生成聊天详情页的完整路由 */
     fun chatDetail(chatId: String) = "chat_detail/$chatId"
+
+    /** Tab页顺序索引，用于判断滑动方向 */
+    val tabOrder = listOf(CHAT_LIST, CONTACTS, DISCOVER, PROFILE)
+
+    fun tabIndex(route: String): Int = tabOrder.indexOf(route)
 }
