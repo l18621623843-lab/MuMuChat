@@ -1117,7 +1117,7 @@ private fun VideoBubble(
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(message.mediaUri)
-                        .videoFrameMillis(1000)
+                        .videoFrameMillis(0)
                         .crossfade(true)
                         .build(),
                     contentDescription = "视频",
@@ -1306,7 +1306,7 @@ fun VideoPlayerDialog(uri: Uri, onDismiss: () -> Unit) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(uri)
-                            .videoFrameMillis(1000)
+                            .videoFrameMillis(0)
                             .crossfade(true)
                             .build(),
                         contentDescription = "视频预览",
