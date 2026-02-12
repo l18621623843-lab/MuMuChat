@@ -1,5 +1,6 @@
 package com.kk.mumuchat.navigation
 
+import android.net.Uri
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -95,8 +96,8 @@ fun AppNavigation(chatViewModel: ChatViewModel = viewModel()) {
                     onSendMessage = { content ->
                         chatViewModel.sendMessage(chatId, content)
                     },
-                    onSendVoice = { duration ->
-                        chatViewModel.sendVoiceMessage(chatId, duration)
+                    onSendVoice = { duration, uri ->
+                        chatViewModel.sendVoiceMessage(chatId, duration, uri)
                     },
                     onSendImage = { uri ->
                         chatViewModel.sendImageMessage(chatId, uri)

@@ -209,9 +209,10 @@ class ChatViewModel : ViewModel() {
      * 发送语音消息
      * @param chatId 目标会话
      * @param duration 语音时长（秒）
+     * @param uri 语音文件URI
      */
-    fun sendVoiceMessage(chatId: String, duration: Int = (3..30).random()) {
-        addMessage(chatId, "", MessageType.VOICE, duration = duration)
+    fun sendVoiceMessage(chatId: String, duration: Int = (3..30).random(), uri: Uri? = null) {
+        addMessage(chatId, "", MessageType.VOICE, duration = duration, mediaUri = uri)
         simulateReply(chatId)
     }
 

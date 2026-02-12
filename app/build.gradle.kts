@@ -71,6 +71,11 @@ dependencies {
     // Coil（视频加载）
     implementation(libs.coil.video)
 
+    // Media3 ExoPlayer（音视频播放）
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
+    implementation(libs.media3.session)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
