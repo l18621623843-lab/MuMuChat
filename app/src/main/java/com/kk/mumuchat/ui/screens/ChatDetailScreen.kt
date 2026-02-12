@@ -646,7 +646,7 @@ private fun MessageItem(
         ) {
             Text(
                 message.senderName,
-                color = Color.LightGray.copy(alpha = 0.85f),
+                color = if (message.isSentByMe) Color.LightGray.copy(alpha = 0.85f) else SkyBlue.copy(alpha = 0.85f),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)
